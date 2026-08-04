@@ -15,7 +15,7 @@ import { WeeklyOrderGrid, cellKey, type CellEdit, type CellKey } from "@/compone
 export default function WeeklyOrdersPage() {
   const { user } = useAuth();
   const [weekStart, setWeekStart] = useState(() => toWeekStart(new Date()));
-  const [customerId, setCustomerId] = useState("");
+  const [customerId, setCustomerId] = useState(user.customerId ?? "");
   const [data, setData] = useState<WeeklyOrdersResponse | null>(null);
   const [windowInfo, setWindowInfo] = useState<OrderWindowInfo | null>(null);
   const [edits, setEdits] = useState<Map<CellKey, CellEdit>>(new Map());
@@ -27,11 +27,20 @@ export default function WeeklyOrdersPage() {
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
 
   const load = useCallback(async () => {
+    const scopedCustomerId = user.type === "internal" ? customerId || user.customerId : user.customerId;
+    if (user.type === "internal" && !scopedCustomerId) {
+      setLoading(false);
+      setData(null);
+      setWindowInfo(null);
+      setError(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setEdits(new Map());
     try {
-      const params = { weekStart, customerId: user.type === "internal" ? customerId || undefined : undefined };
+      const params = { weekStart, customerId: scopedCustomerId || undefined };
       const [orders, windowRes] = await Promise.all([
         getWeeklyOrders(params),
         getOrderWindows({
@@ -49,7 +58,7 @@ export default function WeeklyOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [weekStart, weekEnd, customerId, user.type]);
+  }, [weekStart, weekEnd, customerId, user.type, user.customerId]);
 
   useEffect(() => {
     load();
@@ -86,9 +95,10 @@ export default function WeeklyOrdersPage() {
     });
 
     try {
+      const scopedCustomerId = user.type === "internal" ? customerId || user.customerId : user.customerId;
       const result = await saveWeeklyOrders({
         weekStart,
-        customerId: user.type === "internal" ? customerId || undefined : undefined,
+        customerId: scopedCustomerId || undefined,
         commit,
         cells,
       });
@@ -165,9 +175,9 @@ export default function WeeklyOrdersPage() {
         </div>
 
         {user.type === "internal" ? (
-          <div className="w-48">
+          <div className="w-56">
             <Input
-              placeholder="施設ID（未指定で全体）"
+              placeholder="施設ID（数値・必須）"
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
             />
@@ -175,7 +185,11 @@ export default function WeeklyOrdersPage() {
         ) : null}
       </div>
 
-      {loading ? (
+      {user.type === "internal" && !customerId && !user.customerId ? (
+        <div className="rounded-lg border border-border bg-white px-4 py-10 text-center text-[13px] text-muted">
+          施設IDを入力するか、施設ユーザーでログインしてください。
+        </div>
+      ) : loading ? (
         <div className="rounded-lg border border-border bg-white px-4 py-10 text-center text-[13px] text-muted">
           読み込み中…
         </div>

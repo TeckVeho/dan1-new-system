@@ -5,7 +5,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-bg text-[13px] text-muted">
+        <div className="auth-backdrop flex min-h-screen items-center justify-center text-[13px] text-muted">
           読み込み中…
         </div>
       }

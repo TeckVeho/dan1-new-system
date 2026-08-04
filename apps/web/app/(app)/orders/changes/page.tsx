@@ -25,10 +25,19 @@ export default function OrderChangesPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const scopedCustomerId = user.customerId ?? undefined;
+    if (user.type === "internal" && !scopedCustomerId) {
+      setLoading(false);
+      setRows([]);
+      setTotal(0);
+      setError(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const res = await getOrders({ page, perPage: pageSize });
+      const res = await getOrders({ customerId: scopedCustomerId, page, perPage: pageSize });
       setRows(res.items);
       setTotal(res.total);
     } catch (e) {
@@ -36,7 +45,7 @@ export default function OrderChangesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [page, pageSize, user.type, user.customerId]);
 
   useEffect(() => {
     load();
@@ -147,6 +156,12 @@ export default function OrderChangesPage() {
             : "8月14日 〜 8月19日 喫食分が変更可能です"
         }
       />
+
+      {user.type === "internal" && !user.customerId ? (
+        <Alert variant="info" className="mb-4">
+          施設ユーザーでログインするか、施設への成り代わりを行ってください。
+        </Alert>
+      ) : null}
 
       {error ? (
         <Alert variant="danger" title="エラー" className="mb-4">

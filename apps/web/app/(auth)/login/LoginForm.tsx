@@ -2,44 +2,32 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/ui/brand-logo";
 import { login } from "@/lib/auth";
-import { cn } from "@/lib/utils";
-import type { LoginType } from "@/lib/types";
 
-const TABS: { value: LoginType; label: string; placeholder: string; hint: string }[] = [
-  { value: "employee", label: "社員番号", placeholder: "例: 100002", hint: "6桁の社員番号でログインします" },
-  { value: "haccp", label: "HACCP番号", placeholder: "例: 00020", hint: "5桁のHACCP番号でログインします" },
-  { value: "facility", label: "施設", placeholder: "例: 10234", hint: "施設コードまたはメールアドレスでログインします" },
-];
+const FIELD_CLASS =
+  "h-11 rounded-lg py-0 text-[14px] focus:border-primary focus:ring-2 focus:ring-primary/15";
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/dashboard";
 
-  const [loginType, setLoginType] = useState<LoginType>("employee");
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const activeTab = TABS.find((t) => t.value === loginType) ?? TABS[0];
-
-  function handleTabChange(value: LoginType) {
-    setLoginType(value);
-    setError(null);
-  }
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
     if (!loginId.trim()) {
-      setError(`${activeTab.label}を入力してください`);
+      setError("ログインIDを入力してください");
       return;
     }
     if (!password) {
@@ -48,7 +36,7 @@ export default function LoginForm() {
     }
 
     setLoading(true);
-    const result = await login({ loginId: loginId.trim(), password, loginType });
+    const result = await login({ loginId: loginId.trim(), password });
     setLoading(false);
 
     if (!result.ok) {
@@ -59,93 +47,81 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg">
-      <div className="w-full max-w-[380px] animate-fade-in-up">
-        <div className="rounded-lg border border-border bg-white p-8 shadow-sm">
-          <div className="mb-6 text-center">
-            <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary text-xs font-bold text-white">
-              D
-            </div>
-            <h1 className="text-base font-semibold text-text">談 業務システム</h1>
-            <p className="mt-1 text-[13px] text-muted">アカウント情報を入力してログイン</p>
-          </div>
+    <div className="auth-backdrop flex min-h-screen flex-col items-center justify-center px-4 py-10">
+      <div className="w-full max-w-[420px] animate-auth-rise">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <BrandLogo priority className="mb-4 h-12" />
+          <h1 className="text-[19px] font-semibold tracking-tight text-text">業務システム</h1>
+          <p className="mt-1.5 text-[13px] text-muted">アカウント情報を入力してログイン</p>
+        </div>
 
-          <div className="mb-5 grid grid-cols-3 gap-1 rounded-md bg-bg p-1">
-            {TABS.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => handleTabChange(tab.value)}
-                className={cn(
-                  "rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors",
-                  loginType === tab.value
-                    ? "bg-white text-primary shadow-sm"
-                    : "text-muted hover:text-text",
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
+        <div className="rounded-2xl border border-white/70 bg-white/80 p-6 shadow-[0_1px_2px_rgba(112,78,48,0.05),0_16px_40px_-16px_rgba(112,78,48,0.22)] backdrop-blur-xl sm:p-7">
           {error ? (
             <div
               role="alert"
-              className="mb-5 flex items-start gap-2 rounded-md border border-danger/20 bg-danger/5 px-3 py-2.5 text-[13px] text-danger"
+              className="mb-5 flex items-start gap-2 rounded-lg border border-danger/20 bg-danger/5 px-3 py-2.5 text-[13px] text-danger"
             >
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
           ) : null}
 
           <form onSubmit={onSubmit} className="space-y-4" noValidate>
             <Input
-              label={activeTab.label}
+              label="ログインID"
+              hint="社員番号・HACCP番号・施設コードまたはメールアドレス"
               name="loginId"
               type="text"
               autoComplete="username"
-              placeholder={activeTab.placeholder}
+              autoFocus
+              placeholder="例: 100002"
+              leadingIcon={<UserRound className="h-4 w-4" />}
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
+              disabled={loading}
+              className={FIELD_CLASS}
             />
-            <p className="!-mt-3 text-xs text-muted">{activeTab.hint}</p>
 
-            <div className="w-full">
-              <label htmlFor="password" className="mb-1.5 block text-[13px] font-medium text-muted">
-                パスワード
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-md border border-border bg-white px-3 py-2 pr-10 text-sm text-text placeholder:text-muted/50 outline-none transition-colors focus:border-primary/60 focus:ring-1 focus:ring-primary/20"
-                />
+            <Input
+              label="パスワード"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="パスワードを入力"
+              leadingIcon={<Lock className="h-4 w-4" />}
+              trailing={
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted transition-colors hover:text-text"
+                  className="rounded-md p-1.5 text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
                 >
-                  {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-              </div>
-            </div>
+              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              className={FIELD_CLASS}
+            />
 
-            <Button type="submit" className="group w-full gap-1.5" loading={loading}>
+            <Button
+              type="submit"
+              loading={loading}
+              className="group mt-1 h-11 w-full gap-2 rounded-lg text-[14px] shadow-sm shadow-primary/20 transition-shadow hover:shadow-md hover:shadow-primary/25"
+            >
               ログイン
-              {!loading ? (
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-              ) : null}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Button>
           </form>
         </div>
 
-        <p className="mt-4 text-center text-xs text-muted">&copy; {new Date().getFullYear()} 談 業務システム</p>
+        <p className="mt-5 text-center text-xs text-muted">
+          ログインできない場合は管理者にお問い合わせください
+        </p>
+        <p className="mt-2 text-center text-xs text-muted/70">
+          &copy; {new Date().getFullYear()} 談 業務システム
+        </p>
       </div>
     </div>
   );

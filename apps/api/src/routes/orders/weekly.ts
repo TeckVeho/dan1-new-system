@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { prisma } from "@dan1/database";
 import { bulkMealOrderSchema } from "@dan1/shared";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { resolveScopedCustomerId } from "../../lib/scope.js";
@@ -31,17 +32,47 @@ weeklyOrdersRouter.get("/weekly", authorize("order.read"), async (req, res, next
   }
 });
 
-const putWeeklySchema = z.object({
-  customerId: z.string().optional(),
-  commit: z.boolean(),
-  orders: bulkMealOrderSchema.shape.orders,
+const weeklyCellSchema = z.object({
+  unitId: z.string(),
+  serviceDate: z.string(),
+  mealTypeId: z.string(),
+  menuKindId: z.string(),
+  quantity: z.number().int().min(0),
+  version: z.number().int().min(0).nullable().optional(),
 });
+
+const putWeeklySchema = z
+  .object({
+    customerId: z.string().optional(),
+    weekStart: z.string().optional(),
+    commit: z.boolean(),
+    orders: bulkMealOrderSchema.shape.orders.optional(),
+    cells: z.array(weeklyCellSchema).optional(),
+  })
+  .refine((value) => (value.orders?.length ?? 0) > 0 || (value.cells?.length ?? 0) > 0, {
+    message: "orders または cells が必要です",
+    path: ["orders"],
+  });
 
 weeklyOrdersRouter.put("/weekly", authorize("order.create", "order.update"), async (req, res, next) => {
   try {
     const input = putWeeklySchema.parse(req.body);
     const customerId = resolveScopedCustomerId(req.context!, input.customerId);
-    const result = await saveWeeklyOrders({ ctx: req.context!, customerId, commit: input.commit, orders: input.orders });
+
+    let orders = input.orders ?? [];
+    if (orders.length === 0 && input.cells) {
+      const normalOrderType = await prisma.orderType.findUnique({ where: { code: "normal" } });
+      if (!normalOrderType) {
+        throw new Error("order type normal is not configured");
+      }
+      const orderTypeId = normalOrderType.id.toString();
+      orders = input.cells.map((cell) => ({
+        ...cell,
+        orderTypeId,
+      }));
+    }
+
+    const result = await saveWeeklyOrders({ ctx: req.context!, customerId, commit: input.commit, orders });
     sendData(res, result);
   } catch (error) {
     next(error);

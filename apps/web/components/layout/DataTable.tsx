@@ -12,14 +12,14 @@ export type DataTableColumn<T> = {
 
 export function DataTable<T>({
   columns,
-  rows,
+  rows = [],
   getRowKey,
   loading,
   emptyMessage = "データがありません",
   onRowClick,
 }: {
   columns: DataTableColumn<T>[];
-  rows: T[];
+  rows?: T[];
   getRowKey: (row: T) => string;
   loading?: boolean;
   emptyMessage?: string;

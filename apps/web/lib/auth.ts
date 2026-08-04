@@ -1,4 +1,4 @@
-import type { AuthUser, LoginType } from "./types";
+import type { AuthUser } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -13,7 +13,6 @@ export function getApiBase() {
 export async function login(input: {
   loginId: string;
   password: string;
-  loginType: LoginType;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
     const res = await fetch(`${API_BASE}/api/v1/auth/login`, {

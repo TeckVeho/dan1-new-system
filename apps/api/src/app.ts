@@ -15,6 +15,7 @@ import { auditLogsRouter } from "./routes/audit-logs.routes.js";
 import { jobsRouter } from "./routes/jobs.routes.js";
 import { notificationsRouter } from "./routes/notifications.routes.js";
 import { announcementsRouter } from "./routes/announcements.routes.js";
+import { orderWindowsRouter } from "./routes/order-windows.routes.js";
 
 export function createApp() {
   const app = express();
@@ -31,6 +32,7 @@ export function createApp() {
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/masters", mastersRouter);
   app.use("/api/v1/orders", ordersRouter);
+  app.use("/api/v1/order-windows", orderWindowsRouter);
   app.use("/api/v1/documents", documentsRouter);
   app.use("/api/v1/procurement", procurementRouter);
   app.use("/api/v1/audit-logs", auditLogsRouter);

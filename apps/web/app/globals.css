@@ -2,14 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Tailwind のアルファ修飾子（bg-primary/10 など）を機能させるため、
+ * 各色は R G B のチャンネル値で保持する。CSS から使う場合は rgb() で包む。
+ */
 :root {
-  --color-primary: #5e6ad2;
-  --color-bg: #f6f8fa;
-  --color-surface: #ffffff;
-  --color-sidebar: #ffffff;
-  --color-text: #1f2328;
-  --color-muted: #656d76;
-  --color-border: #e1e4e8;
+  --color-primary: 112 78 48;
+  --color-primary-hover: 90 60 36;
+  --color-primary-light: 243 235 228;
+  --color-accent: 226 160 18;
+  --color-accent-hover: 201 142 15;
+  --color-accent-light: 251 243 224;
+  --color-bg: 244 247 242;
+  --color-surface: 255 255 255;
+  --color-sidebar: 255 255 255;
+  --color-text: 112 78 48;
+  --color-muted: 138 117 96;
+  --color-border: 229 221 212;
 }
 
 body {
@@ -22,9 +31,31 @@ body {
     sans-serif;
   font-size: 14px;
   line-height: 1.5;
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: rgb(var(--color-bg));
+  color: rgb(var(--color-text));
   -webkit-font-smoothing: antialiased;
+}
+
+/* Chrome のオートフィル背景（水色）で入力欄の配色が崩れるのを防ぐ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: rgb(var(--color-text));
+  -webkit-box-shadow: 0 0 0 1000px rgb(var(--color-surface)) inset;
+  box-shadow: 0 0 0 1000px rgb(var(--color-surface)) inset;
+  caret-color: rgb(var(--color-text));
+  /* 背景色のトランジションを無限に遅延させ、ブラウザ既定色の再適用を抑止する */
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+input:-webkit-autofill:focus {
+  -webkit-box-shadow:
+    0 0 0 1000px rgb(var(--color-surface)) inset,
+    0 0 0 3px rgb(var(--color-primary) / 0.18);
+  box-shadow:
+    0 0 0 1000px rgb(var(--color-surface)) inset,
+    0 0 0 3px rgb(var(--color-primary) / 0.18);
 }
 
 @keyframes fade-in-up {
@@ -40,6 +71,45 @@ body {
 
 .animate-fade-in-up {
   animation: fade-in-up 0.2s ease-out both;
+}
+
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-auth-rise {
+  animation: auth-rise 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 認証画面の背景（グラデーション + 減光したグリッド） */
+.auth-backdrop {
+  position: relative;
+  isolation: isolate;
+  background-color: rgb(var(--color-bg));
+  background-image:
+    radial-gradient(46rem 30rem at 50% -6rem, rgb(var(--color-primary) / 0.14), transparent 70%),
+    radial-gradient(34rem 26rem at 108% 108%, rgb(var(--color-accent) / 0.12), transparent 70%);
+}
+
+.auth-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgb(var(--color-primary) / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--color-primary) / 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(58% 48% at 50% 42%, #000, transparent 100%);
+  mask-image: radial-gradient(58% 48% at 50% 42%, #000, transparent 100%);
 }
 
 /* 高密度グリッド（週間注文・発注スケジュール）共通 */

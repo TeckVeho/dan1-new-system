@@ -28,8 +28,6 @@ export type AuthUser = {
   impersonating?: boolean;
 };
 
-export type LoginType = "employee" | "haccp" | "facility";
-
 // --- 注文 ---
 
 export type OrderWindowInfo = {

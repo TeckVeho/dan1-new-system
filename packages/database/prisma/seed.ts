@@ -1,3 +1,4 @@
+import "./load-env.js";
 import { PrismaClient } from "@prisma/client";
 import { randomBytes, scryptSync } from "node:crypto";
 
@@ -172,8 +173,48 @@ async function main() {
     },
   });
 
+  const lunch = await prisma.mealType.findUniqueOrThrow({ where: { code: "lunch" } });
+  const normalMenu = await prisma.menuKind.findUniqueOrThrow({ where: { code: "normal" } });
+  const normalOrderType = await prisma.orderType.findUniqueOrThrow({ where: { code: "normal" } });
+
+  const today = new Date();
+  const weekday = today.getUTCDay();
+  const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
+  const weekStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + mondayOffset));
+
+  for (let i = 0; i < 7; i += 1) {
+    const serviceDate = new Date(weekStart.getTime());
+    serviceDate.setUTCDate(serviceDate.getUTCDate() + i);
+    await prisma.mealOrder.upsert({
+      where: {
+        unitId_serviceDate_mealTypeId_menuKindId_orderTypeId: {
+          unitId: unit.id,
+          serviceDate,
+          mealTypeId: lunch.id,
+          menuKindId: normalMenu.id,
+          orderTypeId: normalOrderType.id,
+        },
+      },
+      create: {
+        customerId: customer.id,
+        unitId: unit.id,
+        serviceDate,
+        mealTypeId: lunch.id,
+        menuKindId: normalMenu.id,
+        orderTypeId: normalOrderType.id,
+        quantity: 12,
+        status: "provisional",
+      },
+      update: {
+        quantity: 12,
+        status: "provisional",
+      },
+    });
+  }
+
   console.log("Seed completed:", {
-    customer: customer.customerCode,
+    customerId: customer.id.toString(),
+    customerCode: customer.customerCode,
     unit: unit.unitCode,
     admin: "91001",
     facility: "99999",

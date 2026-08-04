@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
 const APP_VERSION = "v0.1.0";
 
@@ -106,11 +107,9 @@ export function Sidebar() {
 
   return (
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-border bg-sidebar">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary text-[10px] font-bold text-white">
-          D
-        </span>
-        <span className="text-sm font-semibold text-text">談 業務システム</span>
+      <div className="flex flex-col gap-1 border-b border-border px-4 py-3">
+        <BrandLogo className="h-7 max-w-full" />
+        <span className="text-[11px] font-medium text-muted">業務システム</span>
       </div>
 
       <nav className="flex flex-1 flex-col gap-px overflow-y-auto px-2 py-2">

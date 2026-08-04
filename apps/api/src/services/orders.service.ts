@@ -1,7 +1,7 @@
 import { prisma } from "@dan1/database";
 import type { MealOrderStatus } from "@dan1/database";
 import type { MealOrderUpsertInput } from "@dan1/shared";
-import { DeadlineExceededError, VersionConflictError } from "../lib/errors.js";
+import { DeadlineExceededError, NotFoundError, ScopeViolationError, VersionConflictError } from "../lib/errors.js";
 import { resolveDeadlinesForRange } from "./deadline.service.js";
 import { recordAuditLog } from "./audit.service.js";
 import type { RequestContext } from "../types/context.js";
@@ -83,7 +83,6 @@ export async function getWeeklyOrders(query: WeeklyOrdersQuery) {
             version: match?.version ?? null,
           };
         });
-        if (cells.every((c) => c.orderId === null)) continue;
         rows.push({
           unitId: unit.id,
           unitName: unit.name,
@@ -233,6 +232,183 @@ export async function saveWeeklyOrders(input: SaveWeeklyOrdersInput) {
 }
 
 export type OrderHistoryQuery = { customerId: bigint; serviceDateFrom?: Date; serviceDateTo?: Date; page: number; perPage: number };
+
+export type OrderListQuery = {
+  customerId: bigint;
+  serviceDateFrom?: Date;
+  serviceDateTo?: Date;
+  unitId?: bigint;
+  mealTypeId?: bigint;
+  menuKindId?: bigint;
+  status?: MealOrderStatus;
+  page: number;
+  perPage: number;
+};
+
+export type OrderListItemDto = {
+  id: string;
+  unitName: string;
+  serviceDate: string;
+  mealTypeName: string;
+  menuKindName: string;
+  currentQuantity: number;
+  changedQuantity: number | null;
+  reason: string | null;
+  version: number;
+  status: MealOrderStatus;
+};
+
+function mapMealOrderToListItem(
+  order: {
+    id: bigint;
+    quantity: number;
+    version: number;
+    status: MealOrderStatus;
+    serviceDate: Date;
+    unit: { name: string };
+    mealType: { name: string };
+    menuKind: { name: string };
+  },
+  latestChange?: { afterValue: string | null } | null,
+): OrderListItemDto {
+  return {
+    id: order.id.toString(),
+    unitName: order.unit.name,
+    serviceDate: order.serviceDate.toISOString().slice(0, 10),
+    mealTypeName: order.mealType.name,
+    menuKindName: order.menuKind.name,
+    currentQuantity: order.quantity,
+    changedQuantity: latestChange?.afterValue ? Number(latestChange.afterValue) : null,
+    reason: null,
+    version: order.version,
+    status: order.status,
+  };
+}
+
+export async function listOrders(query: OrderListQuery) {
+  const where = {
+    customerId: query.customerId,
+    ...(query.unitId ? { unitId: query.unitId } : {}),
+    ...(query.mealTypeId ? { mealTypeId: query.mealTypeId } : {}),
+    ...(query.menuKindId ? { menuKindId: query.menuKindId } : {}),
+    ...(query.status ? { status: query.status } : { status: { not: "draft" as MealOrderStatus } }),
+    ...(query.serviceDateFrom || query.serviceDateTo
+      ? {
+          serviceDate: {
+            ...(query.serviceDateFrom ? { gte: query.serviceDateFrom } : {}),
+            ...(query.serviceDateTo ? { lte: query.serviceDateTo } : {}),
+          },
+        }
+      : {}),
+  };
+
+  const [orders, totalCount] = await Promise.all([
+    prisma.mealOrder.findMany({
+      where,
+      include: {
+        unit: true,
+        mealType: true,
+        menuKind: true,
+        changeLogs: { orderBy: { changedAt: "desc" }, take: 1 },
+      },
+      orderBy: [{ serviceDate: "asc" }, { unit: { sortOrder: "asc" } }, { mealType: { sortOrder: "asc" } }, { menuKind: { sortOrder: "asc" } }],
+      skip: (query.page - 1) * query.perPage,
+      take: query.perPage,
+    }),
+    prisma.mealOrder.count({ where }),
+  ]);
+
+  const items = orders.map((order) => mapMealOrderToListItem(order, order.changeLogs[0]));
+  return { items, totalCount };
+}
+
+export type PatchMealOrderInput = {
+  ctx: RequestContext;
+  orderId: bigint;
+  quantity: number;
+  version: number;
+  reason?: string;
+};
+
+export async function patchMealOrder(input: PatchMealOrderInput): Promise<OrderListItemDto> {
+  const order = await prisma.mealOrder.findUnique({
+    where: { id: input.orderId },
+    include: { unit: true, mealType: true, menuKind: true },
+  });
+  if (!order) {
+    throw new NotFoundError("注文が見つかりません");
+  }
+
+  if (input.ctx.userType === "facility" && order.customerId !== input.ctx.customerId) {
+    throw new ScopeViolationError();
+  }
+  if (input.ctx.impersonatingCustomerId && order.customerId !== input.ctx.impersonatingCustomerId) {
+    throw new ScopeViolationError();
+  }
+
+  const deadlines = await resolveDeadlinesForRange([order.serviceDate], order.customerId, "normal");
+  const canBypassDeadline = input.ctx.permissions.has("*") || input.ctx.permissions.has("order.update_after_deadline");
+  const resolved = deadlines.get(order.serviceDate.toISOString().slice(0, 10));
+  if (resolved && resolved.deadlineAt.getTime() < Date.now() && !canBypassDeadline) {
+    throw new DeadlineExceededError(`${order.serviceDate.toISOString().slice(0, 10)} 喫食分は締切を過ぎています`, [
+      {
+        field: "quantity",
+        code: "DEADLINE_EXCEEDED",
+        message: `${order.serviceDate.toISOString().slice(0, 10)} 喫食分は締切を過ぎています`,
+        meta: { serviceDate: order.serviceDate.toISOString().slice(0, 10), deadlineAt: resolved.deadlineAt.toISOString() },
+      },
+    ]);
+  }
+
+  const beforeValue = order.quantity;
+  const updated = await prisma.$transaction(async (tx) => {
+    const updateResult = await tx.mealOrder.updateMany({
+      where: { id: input.orderId, version: input.version },
+      data: {
+        quantity: input.quantity,
+        status: order.status === "draft" ? "provisional" : order.status,
+        version: { increment: 1 },
+        updatedBy: input.ctx.userId ?? null,
+      },
+    });
+    if (updateResult.count === 0) {
+      const current = await tx.mealOrder.findUnique({ where: { id: input.orderId } });
+      throw new VersionConflictError("他のユーザーが同じデータを更新しました", [
+        {
+          field: "quantity",
+          message: `現在の値: ${current?.quantity ?? "不明"} / あなたの入力: ${input.quantity}`,
+          meta: { currentValue: current?.quantity, currentVersion: current?.version },
+        },
+      ]);
+    }
+
+    await tx.orderChangeLog.create({
+      data: {
+        mealOrderId: input.orderId,
+        fieldName: "quantity",
+        beforeValue: String(beforeValue),
+        afterValue: String(input.quantity),
+        changedBy: input.ctx.userId ?? null,
+      },
+    });
+
+    return tx.mealOrder.findUniqueOrThrow({
+      where: { id: input.orderId },
+      include: { unit: true, mealType: true, menuKind: true, changeLogs: { orderBy: { changedAt: "desc" }, take: 1 } },
+    });
+  });
+
+  await recordAuditLog({
+    ctx: input.ctx,
+    action: "update",
+    entityType: "meal_order",
+    entityId: input.orderId,
+    before: { quantity: beforeValue, version: input.version },
+    after: { quantity: input.quantity, version: updated.version, reason: input.reason ?? null },
+  });
+
+  return mapMealOrderToListItem(updated, updated.changeLogs[0]);
+}
 
 export async function getOrderHistory(query: OrderHistoryQuery) {
   const where = {

@@ -10,12 +10,9 @@ const LOCK_DURATION_MS = 15 * 60 * 1000;
 const INTERNAL_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const FACILITY_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
-export type LoginType = "employee" | "haccp" | "facility";
-
 export type LoginInput = {
   loginId: string;
   password: string;
-  loginType: LoginType;
 };
 
 export type SessionMeta = {
@@ -94,14 +91,28 @@ async function buildFacilityContext(customerUserId: bigint): Promise<RequestCont
   };
 }
 
-export async function loginInternal(input: LoginInput, meta: SessionMeta): Promise<LoginResult> {
-  const where = input.loginType === "haccp" ? { haccpNo: input.loginId } : { employeeNo: input.loginId };
-  const user = await prisma.user.findFirst({ where: { ...where, deletedAt: null } });
-  if (!user || !user.isActive) throw new UnauthenticatedError("ログインIDまたはパスワードが正しくありません");
+async function findInternalUser(loginId: string) {
+  if (loginId.includes("@")) {
+    return prisma.user.findFirst({ where: { email: loginId, deletedAt: null } });
+  }
+  return prisma.user.findFirst({
+    where: {
+      deletedAt: null,
+      OR: [{ employeeNo: loginId }, { haccpNo: loginId }],
+    },
+  });
+}
+
+async function authenticateInternalUser(
+  user: { id: bigint; isActive: boolean; lockedUntil: Date | null; passwordHash: string; failedLoginCount: number },
+  password: string,
+  meta: SessionMeta,
+): Promise<LoginResult> {
+  if (!user.isActive) throw new UnauthenticatedError("ログインIDまたはパスワードが正しくありません");
 
   assertNotLocked(user.lockedUntil);
 
-  const valid = verifyPassword(input.password, user.passwordHash);
+  const valid = verifyPassword(password, user.passwordHash);
   if (!valid) {
     const failedLoginCount = user.failedLoginCount + 1;
     const lockedUntil =
@@ -128,22 +139,32 @@ export async function loginInternal(input: LoginInput, meta: SessionMeta): Promi
   return { token, expiresAt, context };
 }
 
-export async function loginFacility(input: LoginInput, meta: SessionMeta): Promise<LoginResult> {
-  const customerUser = await prisma.customerUser.findFirst({
-    where: { loginId: input.loginId, deletedAt: null },
-  });
-  if (!customerUser || !customerUser.isActive) {
+async function authenticateFacilityUser(
+  customerUser: {
+    id: bigint;
+    isActive: boolean;
+    lockedUntil: Date | null;
+    passwordHash: string;
+    failedLoginCount: number;
+  },
+  password: string,
+  meta: SessionMeta,
+): Promise<LoginResult> {
+  if (!customerUser.isActive) {
     throw new UnauthenticatedError("ログインIDまたはパスワードが正しくありません");
   }
 
   assertNotLocked(customerUser.lockedUntil);
 
-  const valid = verifyPassword(input.password, customerUser.passwordHash);
+  const valid = verifyPassword(password, customerUser.passwordHash);
   if (!valid) {
     const failedLoginCount = customerUser.failedLoginCount + 1;
     const lockedUntil =
       failedLoginCount >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCK_DURATION_MS) : customerUser.lockedUntil;
-    await prisma.customerUser.update({ where: { id: customerUser.id }, data: { failedLoginCount, lockedUntil } });
+    await prisma.customerUser.update({
+      where: { id: customerUser.id },
+      data: { failedLoginCount, lockedUntil },
+    });
     throw new UnauthenticatedError("ログインIDまたはパスワードが正しくありません");
   }
 
@@ -166,7 +187,19 @@ export async function loginFacility(input: LoginInput, meta: SessionMeta): Promi
 }
 
 export async function login(input: LoginInput, meta: SessionMeta): Promise<LoginResult> {
-  return input.loginType === "facility" ? loginFacility(input, meta) : loginInternal(input, meta);
+  const internalUser = await findInternalUser(input.loginId);
+  if (internalUser) {
+    return authenticateInternalUser(internalUser, input.password, meta);
+  }
+
+  const facilityUser = await prisma.customerUser.findFirst({
+    where: { loginId: input.loginId, deletedAt: null },
+  });
+  if (facilityUser) {
+    return authenticateFacilityUser(facilityUser, input.password, meta);
+  }
+
+  throw new UnauthenticatedError("ログインIDまたはパスワードが正しくありません");
 }
 
 export async function logout(token: string): Promise<void> {

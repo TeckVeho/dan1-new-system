@@ -32,7 +32,21 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+type ApiPageMeta = {
+  page: number;
+  perPage: number;
+  totalCount: number;
+  totalPages: number;
+};
+
+type ApiJsonBody = {
+  data?: unknown;
+  meta?: ApiPageMeta;
+  error?: { code?: string; message?: string; details?: unknown };
+  success?: boolean;
+} & Record<string, unknown>;
+
+async function fetchApi(path: string, init?: RequestInit): Promise<ApiJsonBody> {
   const res = await fetch(`${V1}${path}`, {
     ...init,
     credentials: "include",
@@ -43,7 +57,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store",
   });
 
-  const body = await res.json().catch(() => ({}));
+  const body = (await res.json().catch(() => ({}))) as ApiJsonBody;
 
   if (!res.ok || body?.success === false) {
     const err = body?.error ?? {};
@@ -55,7 +69,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     );
   }
 
-  return (body?.data ?? body) as T;
+  return body;
+}
+
+function toPaginated<T>(body: ApiJsonBody): Paginated<T> {
+  const items = Array.isArray(body.data) ? (body.data as T[]) : [];
+  const meta = body.meta;
+  return {
+    items,
+    total: meta?.totalCount ?? items.length,
+    page: meta?.page ?? 1,
+    pageSize: meta?.perPage ?? items.length,
+  };
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const body = await fetchApi(path, init);
+  return (body.data ?? body) as T;
+}
+
+async function requestList<T>(path: string, init?: RequestInit): Promise<Paginated<T>> {
+  return toPaginated<T>(await fetchApi(path, init));
 }
 
 function qs(params: Record<string, string | number | boolean | undefined | null>) {
@@ -117,7 +151,7 @@ export async function getOrders(params: {
   page?: number;
   perPage?: number;
 }): Promise<Paginated<OrderListItem>> {
-  return request<Paginated<OrderListItem>>(`/orders${qs(params)}`);
+  return requestList<OrderListItem>(`/orders${qs(params)}`);
 }
 
 export async function patchOrder(
@@ -143,7 +177,14 @@ export async function getMasterList<T>(
   resource: MasterResource,
   params: { page?: number; pageSize?: number; search?: string; includeInactive?: boolean } = {},
 ): Promise<Paginated<T>> {
-  return request<Paginated<T>>(`/masters/${resource}${qs(params)}`);
+  return requestList<T>(
+    `/masters/${resource}${qs({
+      page: params.page,
+      perPage: params.pageSize,
+      q: params.search,
+      includeDeleted: params.includeInactive,
+    })}`,
+  );
 }
 
 export async function createMaster<T>(resource: MasterResource, payload: unknown): Promise<T> {
@@ -185,7 +226,14 @@ export async function getDocuments(params: {
   page?: number;
   pageSize?: number;
 }): Promise<Paginated<DocumentItem>> {
-  return request<Paginated<DocumentItem>>(`/documents${qs(params)}`);
+  return requestList<DocumentItem>(
+    `/documents${qs({
+      customerId: params.customerId,
+      documentType: params.documentType,
+      page: params.page,
+      perPage: params.pageSize,
+    })}`,
+  );
 }
 
 export const getMenuTemplates = (params?: { page?: number; pageSize?: number; search?: string }) =>
@@ -198,7 +246,14 @@ export async function getPlatingInstructions(params: {
   page?: number;
   pageSize?: number;
 }): Promise<Paginated<PlatingInstruction>> {
-  return request<Paginated<PlatingInstruction>>(`/setout-instructions${qs(params)}`);
+  return requestList<PlatingInstruction>(
+    `/documents/plating-instructions${qs({
+      serviceDateFrom: params.serviceDateFrom,
+      serviceDateTo: params.serviceDateTo,
+      page: params.page,
+      perPage: params.pageSize,
+    })}`,
+  );
 }
 
 // --- 発注・在庫 ---
@@ -214,7 +269,30 @@ export async function getProcurementSchedule(params: {
   page?: number;
   perPage?: number;
 }): Promise<ScheduleResponse> {
-  return request<ScheduleResponse>(`/procurement/schedules${qs(params)}`);
+  const body = await fetchApi(
+    `/procurement/schedules${qs({
+      supplierId: params.supplierId,
+      deliveryFrom: params.deliveryDateFrom,
+      deliveryTo: params.deliveryDateTo,
+      search: params.itemQuery,
+      category: params.categoryId,
+      page: params.page,
+      pageSize: params.perPage,
+    })}`,
+  );
+  const paginated = toPaginated<ScheduleResponse["items"][number]>(body);
+  return {
+    items: paginated.items,
+    meta: body.meta ?? {
+      page: paginated.page,
+      perPage: paginated.pageSize,
+      totalCount: paginated.total,
+      totalPages: Math.max(1, Math.ceil(paginated.total / paginated.pageSize)),
+    },
+    supplier: body.supplier as ScheduleResponse["supplier"],
+    dates: body.dates as ScheduleResponse["dates"],
+    calculatedAt: String(body.calculatedAt ?? ""),
+  };
 }
 
 export async function patchScheduleCell(
@@ -231,7 +309,12 @@ export async function getProcurementImports(params: {
   page?: number;
   pageSize?: number;
 }): Promise<Paginated<ImportRecord>> {
-  return request<Paginated<ImportRecord>>(`/procurement/imports${qs(params)}`);
+  return requestList<ImportRecord>(
+    `/procurement/imports${qs({
+      page: params.page,
+      perPage: params.pageSize,
+    })}`,
+  );
 }
 
 export async function postProcurementImport(payload: {
@@ -257,7 +340,13 @@ export async function getAuditLogs(params: {
   page?: number;
   pageSize?: number;
 }): Promise<Paginated<AuditLog>> {
-  return request<Paginated<AuditLog>>(`/audit-logs${qs(params)}`);
+  return requestList<AuditLog>(
+    `/audit-logs${qs({
+      entityType: params.entityType,
+      page: params.page,
+      perPage: params.pageSize,
+    })}`,
+  );
 }
 
 export type SystemSettings = {

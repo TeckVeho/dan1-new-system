@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/badge";
 import { DataTable, Pagination, type DataTableColumn } from "@/components/layout/DataTable";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { getOrders } from "@/lib/api";
 import { formatNumber } from "@/lib/utils";
 import type { OrderListItem } from "@/lib/types";
@@ -26,6 +27,7 @@ function monthRange(base: Date) {
 }
 
 export default function OrderHistoryPage() {
+  const { user } = useAuth();
   const [monthAnchor, setMonthAnchor] = useState(() => new Date());
   const [view, setView] = useState<ViewMode>("detail");
   const [rows, setRows] = useState<OrderListItem[]>([]);
@@ -38,10 +40,25 @@ export default function OrderHistoryPage() {
   const { from, to } = monthRange(monthAnchor);
 
   const load = useCallback(async () => {
+    const scopedCustomerId = user.customerId ?? undefined;
+    if (user.type === "internal" && !scopedCustomerId) {
+      setLoading(false);
+      setRows([]);
+      setTotal(0);
+      setError(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const res = await getOrders({ serviceDateFrom: from, serviceDateTo: to, page, perPage: pageSize });
+      const res = await getOrders({
+        customerId: scopedCustomerId,
+        serviceDateFrom: from,
+        serviceDateTo: to,
+        page,
+        perPage: pageSize,
+      });
       setRows(res.items);
       setTotal(res.total);
     } catch (e) {
@@ -49,7 +66,7 @@ export default function OrderHistoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [from, to, page, pageSize]);
+  }, [from, to, page, pageSize, user.type, user.customerId]);
 
   useEffect(() => {
     load();
@@ -89,6 +106,12 @@ export default function OrderHistoryPage() {
           </>
         }
       />
+
+      {user.type === "internal" && !user.customerId ? (
+        <Alert variant="info" className="mb-4">
+          施設ユーザーでログインするか、施設への成り代わりを行ってください。
+        </Alert>
+      ) : null}
 
       {error ? (
         <Alert variant="danger" title="エラー" className="mb-4">
