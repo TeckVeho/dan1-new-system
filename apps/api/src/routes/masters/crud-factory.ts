@@ -26,6 +26,8 @@ export type MasterResourceConfig<TCreate = unknown, TUpdate = unknown> = {
   readPermission?: string;
   writePermission?: string;
   include?: Record<string, unknown>;
+  /** Maps query-string keys to Prisma where fields (e.g. customerId → customerId). */
+  filterQuery?: Record<string, string>;
 };
 
 export function createMasterRouter<TCreate, TUpdate>(config: MasterResourceConfig<TCreate, TUpdate>): Router {
@@ -44,6 +46,14 @@ export function createMasterRouter<TCreate, TUpdate>(config: MasterResourceConfi
       if (softDelete && !query.includeDeleted) where.deletedAt = null;
       if (query.q && config.searchFields?.length) {
         where.OR = config.searchFields.map((field) => ({ [field]: { contains: query.q } }));
+      }
+      if (config.filterQuery) {
+        for (const [queryKey, field] of Object.entries(config.filterQuery)) {
+          const raw = req.query[queryKey];
+          if (raw !== undefined && raw !== "") {
+            where[field] = BigInt(String(raw));
+          }
+        }
       }
 
       const [items, totalCount] = await Promise.all([

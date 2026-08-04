@@ -173,11 +173,30 @@ export type MasterResource =
   | "customers"
   | "deadline-rules"
   | "deadline-exceptions"
-  | "setout-directions";
+  | "setout-directions"
+  | "meal-types"
+  | "menu-kinds"
+  | "allergens"
+  | "suppliers"
+  | "stock-items"
+  | "production-patterns"
+  | "reference-rules"
+  | "business-calendars"
+  | "order-suspensions"
+  | "document-output-rules"
+  | "customer-groups"
+  | "order-types"
+  | "units";
 
 export async function getMasterList<T>(
   resource: MasterResource,
-  params: { page?: number; pageSize?: number; search?: string; includeInactive?: boolean } = {},
+  params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    includeInactive?: boolean;
+    customerId?: string;
+  } = {},
 ): Promise<Paginated<T>> {
   return requestList<T>(
     `/masters/${resource}${qs({
@@ -185,6 +204,7 @@ export async function getMasterList<T>(
       perPage: params.pageSize,
       q: params.search,
       includeDeleted: params.includeInactive,
+      customerId: params.customerId,
     })}`,
   );
 }
@@ -268,6 +288,27 @@ export async function getFileDownloadUrl(fileId: string): Promise<{
   mimeType: string;
 }> {
   return request(`/files/${fileId}/download-url`);
+}
+
+export async function getMasterById<T>(resource: MasterResource, id: string): Promise<T> {
+  return request<T>(`/masters/${resource}/${id}`);
+}
+
+export async function getCustomerAllergens(customerId: string) {
+  return requestList<{ id: string; allergenType: { id: string; code: string; name: string } }>(
+    `/masters/customers/${customerId}/allergens`,
+  );
+}
+
+export async function addCustomerAllergen(customerId: string, allergenTypeId: string) {
+  return request(`/masters/customers/${customerId}/allergens`, {
+    method: "POST",
+    body: JSON.stringify({ allergenTypeId }),
+  });
+}
+
+export async function removeCustomerAllergen(customerId: string, allergenTypeId: string) {
+  await request<void>(`/masters/customers/${customerId}/allergens/${allergenTypeId}`, { method: "DELETE" });
 }
 
 export const getSwallowCategories = (params?: { page?: number; pageSize?: number; search?: string }) =>

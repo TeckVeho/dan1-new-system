@@ -13,9 +13,16 @@ import {
   deadlineRuleSchema,
   deadlineExceptionSchema,
   menuTemplateSchema,
+  allergenTypeSchema,
+  customerGroupSchema,
+  businessCalendarSchema,
+  orderSuspensionSchema,
+  documentOutputRuleSchema,
+  orderTypeSchema,
 } from "@dan1/shared";
 import { createMasterRouter } from "./crud-factory.js";
 import { customerSettingsRouter } from "./settings.routes.js";
+import { customerAllergensRouter } from "./customer-allergens.routes.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { sendData, sendNoContent } from "../../lib/response.js";
 import { NotFoundError } from "../../lib/errors.js";
@@ -102,6 +109,7 @@ mastersRouter.use(
     createSchema: unitSchema,
     updateSchema: unitSchema.partial(),
     searchFields: ["name", "unitCode"],
+    filterQuery: { customerId: "customerId" },
     toCreateData: (input) => ({ ...input, customerId: BigInt(input.customerId) }),
     toUpdateData: (input) => ({
       ...input,
@@ -303,3 +311,95 @@ mastersRouter.delete(
 );
 
 mastersRouter.use("/customers/:customerId/settings", customerSettingsRouter);
+mastersRouter.use("/customers/:customerId/allergens", customerAllergensRouter);
+
+mastersRouter.use(
+  "/allergens",
+  createMasterRouter({
+    entityType: "allergen_type",
+    model: prisma.allergenType,
+    createSchema: allergenTypeSchema,
+    updateSchema: allergenTypeSchema.partial(),
+    searchFields: ["name", "code"],
+    writePermission: "master.allergen.update",
+  }),
+);
+
+mastersRouter.use(
+  "/customer-groups",
+  createMasterRouter({
+    entityType: "customer_group",
+    model: prisma.customerGroup,
+    createSchema: customerGroupSchema,
+    updateSchema: customerGroupSchema.partial(),
+    searchFields: ["name", "code"],
+    writePermission: "master.customer.update",
+  }),
+);
+
+mastersRouter.use(
+  "/order-types",
+  createMasterRouter({
+    entityType: "order_type",
+    model: prisma.orderType,
+    createSchema: orderTypeSchema,
+    updateSchema: orderTypeSchema.partial(),
+    searchFields: ["name", "code"],
+  }),
+);
+
+mastersRouter.use(
+  "/business-calendars",
+  createMasterRouter({
+    entityType: "business_calendar",
+    model: prisma.businessCalendar,
+    createSchema: businessCalendarSchema,
+    updateSchema: businessCalendarSchema.partial(),
+    searchFields: ["note"],
+    defaultSortField: "calDate",
+    softDelete: false,
+    toCreateData: (input) => ({ ...input, calDate: new Date(input.calDate) }),
+    toUpdateData: (input) => ({
+      ...input,
+      ...(input.calDate ? { calDate: new Date(input.calDate) } : {}),
+    }),
+  }),
+);
+
+mastersRouter.use(
+  "/order-suspensions",
+  createMasterRouter({
+    entityType: "order_suspension",
+    model: prisma.orderSuspension,
+    createSchema: orderSuspensionSchema,
+    updateSchema: orderSuspensionSchema.partial(),
+    searchFields: ["reason"],
+    defaultSortField: "startDate",
+    softDelete: false,
+    filterQuery: { customerId: "customerId" },
+    toCreateData: (input) => ({
+      ...input,
+      customerId: BigInt(input.customerId),
+      startDate: new Date(input.startDate),
+      endDate: input.endDate ? new Date(input.endDate) : null,
+    }),
+    toUpdateData: (input) => ({
+      ...input,
+      ...(input.customerId !== undefined ? { customerId: BigInt(input.customerId) } : {}),
+      ...(input.startDate ? { startDate: new Date(input.startDate) } : {}),
+      ...(input.endDate !== undefined ? { endDate: input.endDate ? new Date(input.endDate) : null } : {}),
+    }),
+  }),
+);
+
+mastersRouter.use(
+  "/document-output-rules",
+  createMasterRouter({
+    entityType: "document_output_rule",
+    model: prisma.documentOutputRule,
+    createSchema: documentOutputRuleSchema,
+    updateSchema: documentOutputRuleSchema.partial(),
+    searchFields: ["mealTypeCode", "documentType"],
+    softDelete: false,
+  }),
+);

@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, Search } from "lucide-react";
+import { Eye, Pencil, Search } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
@@ -81,16 +82,25 @@ function CustomersContent() {
       key: "actions",
       header: "",
       render: (row) => (
-        <Button
-          size="md"
-          variant="secondary"
-          onClick={() => handleImpersonate(row)}
-          loading={impersonatingId === row.id}
-          className="h-7"
-        >
-          <Eye className="h-3.5 w-3.5" />
-          施設ビューで確認
-        </Button>
+        <div className="flex justify-end gap-1">
+          <Link
+            href={`/masters/customers/${row.id}`}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[12px] text-muted hover:bg-bg hover:text-primary"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            編集
+          </Link>
+          <Button
+            size="md"
+            variant="secondary"
+            onClick={() => handleImpersonate(row)}
+            loading={impersonatingId === row.id}
+            className="h-7"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            施設ビュー
+          </Button>
+        </div>
       ),
     },
   ];

@@ -120,6 +120,51 @@ export const fileUploadUrlRequestSchema = z.object({
   sizeBytes: z.number().int().positive().max(50 * 1024 * 1024),
 });
 
+export const orderTypeSchema = z.object({
+  code: z.string().min(1).max(20),
+  name: z.string().min(1).max(50),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const allergenTypeSchema = z.object({
+  code: z.string().min(1).max(20),
+  name: z.string().min(1).max(50),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const customerGroupSchema = z.object({
+  code: z.string().min(1).max(20),
+  name: z.string().min(1).max(100),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const businessCalendarSchema = z.object({
+  calDate: z.string(),
+  isHoliday: z.boolean().default(false),
+  note: z.string().max(100).optional(),
+});
+
+export const orderSuspensionSchema = z.object({
+  customerId: z.string().min(1),
+  startDate: z.string(),
+  endDate: z.string().optional(),
+  reason: z.string().max(255).optional(),
+});
+
+export const documentOutputRuleSchema = z.object({
+  mealTypeCode: z.string().min(1).max(20),
+  documentType: z.string().min(1).max(50),
+  isEnabled: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).default(0),
+});
+
+export const customerAllergenSchema = z.object({
+  allergenTypeId: z.string().min(1),
+});
+
 export const fileRegisterSchema = z.object({
   storageKey: z.string().min(1).max(500),
   originalName: z.string().min(1).max(255),
