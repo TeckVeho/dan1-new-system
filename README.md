@@ -1,6 +1,54 @@
-# dan1 新システム 要件定義
+# dan1 新システム
 
-株式會社 談 の基幹システム（受注・献立・帳票）と発注・在庫確認システムを統合した新システムの要件定義書。
+株式會社 談 の基幹システム（受注・献立・帳票）と発注・在庫確認システムを統合した新システム。
+
+## 実装状況（Phase 0〜4）
+
+| Phase | 状態 | 内容 |
+|-------|------|------|
+| 0 | 実装済 | モノレポ、Prisma、Express、Next.js、UI基盤、CI、Terraform骨格 |
+| 1 | 実装済 | 認証・権限・マスタCRUD・監査ログ・ジョブ基盤 |
+| 2 | 実装済 | 週間注文・締切・履歴・未入力アラート・成り代わり |
+| 3 | 実装済 | 献立資料・版管理・定型文・盛付指示書 |
+| 4 | 実装済 | 発注スケジュール・取込・参照ロジック・棚卸 |
+
+## 開発環境の起動
+
+```bash
+# 依存関係
+npm install
+cp .env.example .env
+
+# MySQL（Docker）
+docker-compose up -d
+
+# DBマイグレーション & シード
+npm run db:migrate
+npm run db:seed
+
+# 開発サーバー（API:4000 / Web:3000）
+npm run dev
+```
+
+### テスト用アカウント（シード後）
+
+| 種別 | ID | パスワード |
+|------|-----|-----------|
+| 社内管理者 | 91001 | 91001 |
+| 施設ユーザー | 99999 | 99999 |
+
+## リポジトリ構成
+
+```
+apps/web/          Next.js フロントエンド
+apps/api/          Express REST API
+packages/database/ Prisma スキーマ・マイグレーション
+packages/shared/   共有型・Zodスキーマ
+packages/ui/       共通UIコンポーネント
+jobs/runner/       非同期ジョブランナー
+infra/terraform/   GCP IaC
+docs/              要件定義書
+```
 
 ## 前提
 

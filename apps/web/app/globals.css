@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #5e6ad2;
+  --color-bg: #f6f8fa;
+  --color-surface: #ffffff;
+  --color-sidebar: #ffffff;
+  --color-text: #1f2328;
+  --color-muted: #656d76;
+  --color-border: #e1e4e8;
+}
+
+body {
+  font-family:
+    var(--font-inter),
+    var(--font-noto-sans-jp),
+    "Hiragino Sans",
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.2s ease-out both;
+}
+
+/* 高密度グリッド（週間注文・発注スケジュール）共通 */
+.dense-grid {
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.dense-grid td,
+.dense-grid th {
+  white-space: nowrap;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
