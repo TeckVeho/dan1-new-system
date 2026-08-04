@@ -53,11 +53,7 @@ const internalNav: NavSection[] = [
   },
   {
     heading: "マスタ",
-    items: [
-      { href: "/masters/customers", label: "施設", icon: Users },
-      { href: "/masters/deadlines", label: "締切", icon: CalendarClock },
-      { href: "/masters/swallow-categories", label: "嚥下食", icon: UtensilsCrossed },
-    ],
+    items: [{ href: "/masters", label: "マスタ管理", icon: Database }],
   },
   {
     heading: "管理",

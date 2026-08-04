@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { ZodSchema } from "zod";
+import { masterSortOrderSchema } from "@dan1/shared";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { paginationQuerySchema } from "../../lib/pagination.js";
 import { sendData, sendList, sendNoContent, buildPageMeta } from "../../lib/response.js";
@@ -57,6 +58,30 @@ export function createMasterRouter<TCreate, TUpdate>(config: MasterResourceConfi
       ]);
 
       sendList(res, items, buildPageMeta(query.page, query.perPage, totalCount));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch("/sort-order", authorize(writePerm), async (req, res, next) => {
+    try {
+      const input = masterSortOrderSchema.parse(req.body);
+      await Promise.all(
+        input.items.map((item) =>
+          config.model.update({
+            where: { id: BigInt(item.id) },
+            data: { [sortField]: item.sortOrder },
+          }),
+        ),
+      );
+      await recordAuditLog({
+        ctx: req.context!,
+        action: "update",
+        entityType: config.entityType,
+        entityId: 0n,
+        after: { sortOrder: input.items },
+      });
+      sendData(res, { updated: input.items.length });
     } catch (error) {
       next(error);
     }

@@ -12,6 +12,7 @@ import { FilterChip } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/layout/DataTable";
 import { createMaster, getDeadlineExceptions, getDeadlineRules } from "@/lib/api";
 import type { DeadlineException, DeadlineRule } from "@/lib/types";
+import { MasterBackLink } from "@/components/masters/MasterBackLink";
 
 type Tab = "rules" | "exceptions";
 
@@ -218,6 +219,7 @@ function DeadlinesContent() {
 
   return (
     <div>
+      <MasterBackLink />
       <PageHeader
         title="締切マスタ"
         description="仮注文締切をマスタ化し、画面操作のみで変更・例外設定を行えます（REQ-13）"

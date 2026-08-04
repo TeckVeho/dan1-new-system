@@ -14,6 +14,7 @@ import { getCustomers } from "@/lib/api";
 import { startImpersonation } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import type { Customer } from "@/lib/types";
+import { MasterBackLink } from "@/components/masters/MasterBackLink";
 
 function CustomersContent() {
   const router = useRouter();
@@ -96,6 +97,7 @@ function CustomersContent() {
 
   return (
     <div>
+      <MasterBackLink />
       <PageHeader title="施設マスタ" description="施設の一覧・成り代わり表示の開始（FR-105, FR-106）" />
 
       {error ? (

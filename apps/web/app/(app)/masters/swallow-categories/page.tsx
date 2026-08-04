@@ -11,6 +11,7 @@ import { DataTable, type DataTableColumn } from "@/components/layout/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { createMaster, deleteMaster, getSwallowCategories, updateMaster } from "@/lib/api";
 import type { SwallowCategory } from "@/lib/types";
+import { MasterBackLink } from "@/components/masters/MasterBackLink";
 
 type FormState = { code: string; name: string; sortOrder: number; isActive: boolean };
 
@@ -124,6 +125,7 @@ function SwallowCategoriesContent() {
 
   return (
     <div>
+      <MasterBackLink />
       <PageHeader
         title="嚥下食区分"
         description="表示順は週間注文入力・注文履歴の行の並び順に反映されます（REQ-07, REQ-09）"

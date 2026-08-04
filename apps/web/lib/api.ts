@@ -208,6 +208,68 @@ export async function deleteMaster(resource: MasterResource, id: string): Promis
   await request<void>(`/masters/${resource}/${id}`, { method: "DELETE" });
 }
 
+export async function restoreMaster<T>(resource: MasterResource, id: string): Promise<T> {
+  return request<T>(`/masters/${resource}/${id}/restore`, { method: "POST" });
+}
+
+export async function updateMasterSortOrder(
+  resource: MasterResource,
+  items: Array<{ id: string; sortOrder: number }>,
+): Promise<{ updated: number }> {
+  return request<{ updated: number }>(`/masters/${resource}/sort-order`, {
+    method: "PATCH",
+    body: JSON.stringify({ items }),
+  });
+}
+
+export type FileUploadUrlResponse = {
+  storageKey: string;
+  uploadUrl: string;
+  expiresAt: string;
+};
+
+export async function createFileUploadUrl(payload: {
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+}): Promise<FileUploadUrlResponse> {
+  return request<FileUploadUrlResponse>("/files/upload-url", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function uploadFileContent(uploadUrl: string, file: Blob, mimeType: string): Promise<void> {
+  const res = await fetch(`${getApiBase()}${uploadUrl}`, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": mimeType },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+    throw new ApiError(res.status, "UPLOAD_FAILED", body.error?.message ?? "ファイルのアップロードに失敗しました");
+  }
+}
+
+export async function registerFile(payload: {
+  storageKey: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+}): Promise<{ id: string }> {
+  return request<{ id: string }>("/files", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function getFileDownloadUrl(fileId: string): Promise<{
+  downloadUrl: string;
+  expiresAt: string;
+  originalName: string;
+  mimeType: string;
+}> {
+  return request(`/files/${fileId}/download-url`);
+}
+
 export const getSwallowCategories = (params?: { page?: number; pageSize?: number; search?: string }) =>
   getMasterList<SwallowCategory>("swallow-categories", params);
 

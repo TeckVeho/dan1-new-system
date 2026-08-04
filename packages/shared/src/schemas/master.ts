@@ -102,3 +102,27 @@ export const systemSettingsSchema = z.object({
   sessionTimeoutMinutes: z.number().int().min(5).max(1440),
   maintenanceMode: z.boolean(),
 });
+
+export const masterSortOrderSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        sortOrder: z.number().int().min(0),
+      }),
+    )
+    .min(1),
+});
+
+export const fileUploadUrlRequestSchema = z.object({
+  originalName: z.string().min(1).max(255),
+  mimeType: z.string().min(1).max(100),
+  sizeBytes: z.number().int().positive().max(50 * 1024 * 1024),
+});
+
+export const fileRegisterSchema = z.object({
+  storageKey: z.string().min(1).max(500),
+  originalName: z.string().min(1).max(255),
+  mimeType: z.string().min(1).max(100),
+  sizeBytes: z.number().int().positive(),
+});
