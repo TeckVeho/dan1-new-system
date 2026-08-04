@@ -16,6 +16,10 @@ import type {
   ScheduleResponse,
   SwallowCategory,
   WeeklyOrdersResponse,
+  RiceOrder,
+  AllergenOrder,
+  UnenteredFacilityAlert,
+  Unit,
 } from "./types";
 
 const API_BASE = getApiBase();
@@ -164,6 +168,84 @@ export async function patchOrder(
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+export async function getRiceOrders(params: {
+  customerId?: string;
+  unitId?: string;
+  dateFrom: string;
+  dateTo: string;
+}): Promise<RiceOrder[]> {
+  return request<RiceOrder[]>(`/orders/rice${qs(params)}`);
+}
+
+export async function saveRiceOrders(payload: {
+  customerId?: string;
+  commit: boolean;
+  cells: {
+    unitId: string;
+    serviceDate: string;
+    riceType: string;
+    quantity: number;
+    version?: number | null;
+  }[];
+}): Promise<{ saved: number; cells: RiceOrder[] }> {
+  return request(`/orders/rice`, { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function getAllergenOrders(params: {
+  customerId?: string;
+  unitId?: string;
+  dateFrom: string;
+  dateTo: string;
+}): Promise<AllergenOrder[]> {
+  return request<AllergenOrder[]>(`/orders/allergen${qs(params)}`);
+}
+
+export async function createAllergenOrder(payload: {
+  customerId?: string;
+  unitId: string;
+  serviceDate: string;
+  allergenTypeId: string;
+  quantity: number;
+}): Promise<AllergenOrder> {
+  return request<AllergenOrder>(`/orders/allergen`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateAllergenOrder(
+  id: string,
+  payload: { quantity: number; version: number },
+): Promise<AllergenOrder> {
+  return request<AllergenOrder>(`/orders/allergen/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function getUnenteredFacilities(params: {
+  serviceDateFrom: string;
+  serviceDateTo: string;
+}): Promise<{
+  alerts: UnenteredFacilityAlert[];
+  excluded: {
+    contractEnded: number;
+    orderSuspended: number;
+    longHoliday: number;
+    weekdayNotApplicable: number;
+  };
+}> {
+  const body = await fetchApi(`/orders/unentered-facilities${qs(params)}`);
+  return {
+    alerts: (body.data ?? []) as UnenteredFacilityAlert[],
+    excluded: (body.excluded ?? {
+      contractEnded: 0,
+      orderSuspended: 0,
+      longHoliday: 0,
+      weekdayNotApplicable: 0,
+    }) as {
+      contractEnded: number;
+      orderSuspended: number;
+      longHoliday: number;
+      weekdayNotApplicable: number;
+    },
+  };
 }
 
 // --- マスタ共通 CRUD ---

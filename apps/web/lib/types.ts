@@ -83,6 +83,44 @@ export type OrderListItem = {
   version: number;
 };
 
+export type RiceOrder = {
+  id: string;
+  unitId: string;
+  serviceDate: string;
+  riceType: string;
+  quantity: number;
+  status: "draft" | "provisional" | "confirmed";
+  version: number;
+};
+
+export type AllergenOrder = {
+  id: string;
+  unitId: string;
+  serviceDate: string;
+  allergenTypeId: string;
+  quantity: number;
+  status: "draft" | "provisional" | "confirmed";
+  version: number;
+  allergenType?: { id: string; code: string; name: string };
+};
+
+export type UnenteredFacilityAlert = {
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  serviceDate: string;
+  missingTypes: string[];
+  previousOrderSummary: { lastServiceDate: string; totalQuantity: number } | null;
+  alertStatus: string;
+};
+
+export type Unit = {
+  id: string;
+  name: string;
+  customerId: string;
+  isActive: boolean;
+};
+
 // --- マスタ ---
 
 export type SwallowCategory = {

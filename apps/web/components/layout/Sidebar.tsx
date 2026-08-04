@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   BookOpenText,
   CalendarClock,
   ClipboardList,
@@ -17,6 +18,7 @@ import {
   ShieldCheck,
   Users,
   UtensilsCrossed,
+  Wheat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -33,8 +35,11 @@ const internalNav: NavSection[] = [
     heading: "受注",
     items: [
       { href: "/orders/weekly", label: "週間注文", icon: ClipboardList },
+      { href: "/orders/rice", label: "合数指定", icon: Wheat },
+      { href: "/orders/allergen/new", label: "アレルギー注文", icon: AlertTriangle },
       { href: "/orders/changes", label: "注文変更", icon: ListChecks },
       { href: "/orders/history", label: "注文履歴", icon: History },
+      { href: "/orders/alerts", label: "未入力アラート", icon: AlertTriangle },
     ],
   },
   {
@@ -70,6 +75,8 @@ const facilityNav: NavSection[] = [
     heading: "注文",
     items: [
       { href: "/orders/weekly", label: "週間注文", icon: ClipboardList },
+      { href: "/orders/rice", label: "合数指定", icon: Wheat },
+      { href: "/orders/allergen/new", label: "アレルギー注文", icon: AlertTriangle },
       { href: "/orders/changes", label: "注文変更", icon: ListChecks },
       { href: "/orders/history", label: "注文履歴", icon: History },
     ],
