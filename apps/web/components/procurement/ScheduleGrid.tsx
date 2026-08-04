@@ -113,12 +113,12 @@ export function ScheduleGrid({
                             className="h-6 w-14 rounded-sm border border-transparent bg-transparent text-right text-[12px] tabular-nums text-text outline-none transition-colors hover:border-border focus:border-primary/60 focus:bg-white focus:ring-1 focus:ring-primary/20"
                           />
                         </div>
-                        {cell.unenteredCustomerCodes.length > 0 ? (
+                        {(cell.unenteredCustomerCodes ?? []).length > 0 ? (
                           <p
                             className="truncate text-[10px] text-warning"
-                            title={`仮注文未入力: ${cell.unenteredCustomerCodes.join(", ")}`}
+                            title={`仮注文未入力: ${(cell.unenteredCustomerCodes ?? []).join(", ")}`}
                           >
-                            未入力 {cell.unenteredCustomerCodes.length}件
+                            未入力 {(cell.unenteredCustomerCodes ?? []).length}件
                           </p>
                         ) : null}
                       </div>

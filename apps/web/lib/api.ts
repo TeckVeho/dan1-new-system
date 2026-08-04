@@ -11,6 +11,8 @@ import type {
   OrderWindowInfo,
   Paginated,
   PlatingInstruction,
+  ScheduleCell,
+  ScheduleItem,
   ScheduleResponse,
   SwallowCategory,
   WeeklyOrdersResponse,
@@ -236,8 +238,34 @@ export async function getDocuments(params: {
   );
 }
 
-export const getMenuTemplates = (params?: { page?: number; pageSize?: number; search?: string }) =>
-  getMasterList<MenuTemplate>("setout-directions", params);
+export const getMenuTemplates = async (params?: {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}): Promise<Paginated<MenuTemplate>> => {
+  const res = await getMasterList<{
+    id: string;
+    title: string;
+    body: string;
+    tags?: string[] | null;
+    useCount: number;
+    isActive: boolean;
+    deletedAt?: string | null;
+  }>("setout-directions", params);
+
+  return {
+    ...res,
+    items: res.items.map((row) => ({
+      id: row.id,
+      title: row.title,
+      body: row.body,
+      tags: row.tags ?? [],
+      usageCount: row.useCount,
+      lastUsedAt: null,
+      status: row.deletedAt || !row.isActive ? "archived" : "active",
+    })),
+  };
+};
 
 export async function getPlatingInstructions(params: {
   customerId?: string;
@@ -257,6 +285,58 @@ export async function getPlatingInstructions(params: {
 }
 
 // --- 発注・在庫 ---
+
+type RawScheduleCell = {
+  id?: string | number | null;
+  deliveryDate?: string;
+  requiredQty?: string;
+  orderQty?: string;
+  orderQuantity?: string;
+  expectedStock?: string;
+  actualStock?: string | null;
+  stockQuantity?: string | null;
+  adjustSource?: "auto" | "manual";
+  isShortage?: boolean;
+  unenteredCustomerCodes?: string[];
+  version?: number;
+};
+
+function normalizeScheduleCell(raw: RawScheduleCell): ScheduleCell | null {
+  if (raw.id == null || raw.deliveryDate == null || raw.version == null) return null;
+  const orderQty = raw.orderQty ?? raw.orderQuantity ?? "0";
+  return {
+    id: String(raw.id),
+    deliveryDate: raw.deliveryDate,
+    requiredQty: raw.requiredQty ?? orderQty,
+    orderQty,
+    expectedStock: raw.expectedStock ?? raw.actualStock ?? raw.stockQuantity ?? "0",
+    actualStock: raw.actualStock ?? raw.stockQuantity ?? null,
+    adjustSource: raw.adjustSource ?? "auto",
+    isShortage: raw.isShortage ?? false,
+    unenteredCustomerCodes: raw.unenteredCustomerCodes ?? [],
+    version: raw.version,
+  };
+}
+
+function normalizeScheduleItem(raw: {
+  stockItemId: string | number;
+  name: string;
+  unit: string;
+  totalOrderQty: string;
+  cells?: RawScheduleCell[];
+}): ScheduleItem {
+  const cells = (raw.cells ?? []).flatMap((cell) => {
+    const normalized = normalizeScheduleCell(cell);
+    return normalized ? [normalized] : [];
+  });
+  return {
+    stockItemId: String(raw.stockItemId),
+    name: raw.name,
+    unit: raw.unit,
+    totalOrderQty: raw.totalOrderQty,
+    cells,
+  };
+}
 
 export async function getProcurementSchedule(params: {
   supplierId: string;
@@ -280,9 +360,9 @@ export async function getProcurementSchedule(params: {
       pageSize: params.perPage,
     })}`,
   );
-  const paginated = toPaginated<ScheduleResponse["items"][number]>(body);
+  const paginated = toPaginated<ScheduleItem>(body);
   return {
-    items: paginated.items,
+    items: paginated.items.map((item) => normalizeScheduleItem(item)),
     meta: body.meta ?? {
       page: paginated.page,
       perPage: paginated.pageSize,
@@ -301,7 +381,11 @@ export async function patchScheduleCell(
 ): Promise<{ id: string; version: number }> {
   return request<{ id: string; version: number }>(`/procurement/schedules/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      orderQty: payload.orderQty,
+      actualStock: payload.actualStock,
+      version: payload.version,
+    }),
   });
 }
 

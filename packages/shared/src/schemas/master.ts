@@ -95,3 +95,10 @@ export const referenceRuleSchema = z.object({
   sortOrder: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
 });
+
+export const systemSettingsSchema = z.object({
+  brandName: z.string().min(1),
+  supportEmail: z.string().email(),
+  sessionTimeoutMinutes: z.number().int().min(5).max(1440),
+  maintenanceMode: z.boolean(),
+});

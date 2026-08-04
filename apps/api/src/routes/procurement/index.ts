@@ -30,6 +30,7 @@ procurementRouter.get("/schedules", authorize("procurement.schedule.read"), asyn
     sendList(res, result.items, buildPageMeta(query.page, query.pageSize, result.totalCount), {
       supplier: result.supplier,
       dates: result.dates,
+      calculatedAt: new Date().toISOString(),
     });
   } catch (error) {
     next(error);
@@ -42,8 +43,8 @@ procurementRouter.patch("/schedules/:id", authorize("procurement.schedule.update
     const updated = await updateSchedule({
       ctx: req.context!,
       id: BigInt(input.id),
-      orderQuantity: input.orderQuantity,
-      stockQuantity: input.stockQuantity,
+      ...(input.orderQty !== undefined ? { orderQuantity: input.orderQty } : {}),
+      ...(input.actualStock !== undefined ? { stockQuantity: input.actualStock } : {}),
       version: input.version,
     });
     sendData(res, updated);

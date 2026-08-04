@@ -185,6 +185,34 @@ mastersRouter.use(
 );
 
 mastersRouter.use(
+  "/deadline-exceptions",
+  createMasterRouter({
+    entityType: "deadline_exception",
+    model: prisma.deadlineException,
+    createSchema: deadlineExceptionSchema,
+    updateSchema: deadlineExceptionSchema.partial(),
+    searchFields: ["reason"],
+    defaultSortField: "serviceDate",
+    softDelete: false,
+    writePermission: "master.deadline.update",
+    toCreateData: (input) => ({
+      deadlineRuleId: BigInt(input.deadlineRuleId),
+      serviceDate: new Date(input.serviceDate),
+      dayOffset: input.dayOffset,
+      cutoffTime: input.cutoffTime,
+      reason: input.reason,
+    }),
+    toUpdateData: (input) => ({
+      ...(input.deadlineRuleId !== undefined ? { deadlineRuleId: BigInt(input.deadlineRuleId) } : {}),
+      ...(input.serviceDate ? { serviceDate: new Date(input.serviceDate) } : {}),
+      ...(input.dayOffset !== undefined ? { dayOffset: input.dayOffset } : {}),
+      ...(input.cutoffTime !== undefined ? { cutoffTime: input.cutoffTime } : {}),
+      ...(input.reason !== undefined ? { reason: input.reason } : {}),
+    }),
+  }),
+);
+
+mastersRouter.use(
   "/menu-templates",
   createMasterRouter({
     entityType: "menu_template",
@@ -192,6 +220,19 @@ mastersRouter.use(
     createSchema: menuTemplateSchema,
     updateSchema: menuTemplateSchema.partial(),
     searchFields: ["title", "body"],
+  }),
+);
+
+// FR-207: 献立定型文（現行 set-out-directions 相当）。menu_templates と同一データ。
+mastersRouter.use(
+  "/setout-directions",
+  createMasterRouter({
+    entityType: "setout_direction",
+    model: prisma.menuTemplate,
+    createSchema: menuTemplateSchema,
+    updateSchema: menuTemplateSchema.partial(),
+    searchFields: ["title", "body"],
+    writePermission: "master.setout_direction.update",
   }),
 );
 

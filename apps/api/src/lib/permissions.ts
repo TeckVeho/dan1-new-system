@@ -58,6 +58,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     "admin.audit_log.read",
     "admin.job.cancel",
     "admin.impersonate",
+    "admin.settings.read",
+    "admin.settings.update",
   ],
   internal_staff: [
     "announcement.read",
@@ -87,6 +89,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     "sales_price.read",
     "admin.user.read",
     "admin.job.cancel",
+    "admin.settings.read",
+    "admin.settings.update",
   ],
   facility_admin: [
     "announcement.read",

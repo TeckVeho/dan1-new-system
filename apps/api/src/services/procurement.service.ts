@@ -57,21 +57,29 @@ export async function getSchedules(query: ScheduleQuery) {
   });
 
   const items = stockItems.map((item) => {
-    const cells = dates.map((date) => {
+    const cells = dates.flatMap((date) => {
       const schedule = schedules.find((s) => s.stockItemId === item.id && s.deliveryDate.getTime() === date.getTime());
-      if (!schedule) return { deliveryDate: dateKey(date), id: null, orderQuantity: null, stockQuantity: null, status: null, version: null, isShortage: false };
+      if (!schedule) return [];
+      const orderQty = schedule.orderQuantity.toString();
+      const actualStock = schedule.stockQuantity?.toString() ?? null;
+      const expectedStock = actualStock ?? "0";
       const isShortage = schedule.stockQuantity !== null && Number(schedule.orderQuantity) > Number(schedule.stockQuantity);
-      return {
-        id: schedule.id,
-        deliveryDate: dateKey(date),
-        orderQuantity: schedule.orderQuantity.toString(),
-        stockQuantity: schedule.stockQuantity?.toString() ?? null,
-        status: schedule.status,
-        version: schedule.version,
-        isShortage,
-      };
+      return [
+        {
+          id: schedule.id,
+          deliveryDate: dateKey(date),
+          requiredQty: orderQty,
+          orderQty,
+          expectedStock,
+          actualStock,
+          adjustSource: "auto" as const,
+          isShortage,
+          unenteredCustomerCodes: [] as string[],
+          version: schedule.version,
+        },
+      ];
     });
-    const totalOrderQty = cells.reduce((sum, c) => sum + (c.orderQuantity ? Number(c.orderQuantity) : 0), 0);
+    const totalOrderQty = cells.reduce((sum, c) => sum + Number(c.orderQty), 0);
     return {
       stockItemId: item.id,
       name: item.name,
@@ -93,7 +101,7 @@ export async function getSchedules(query: ScheduleQuery) {
 export type UpdateScheduleInput = {
   ctx: RequestContext;
   id: bigint;
-  orderQuantity: number;
+  orderQuantity?: number;
   stockQuantity?: number;
   version: number;
 };
@@ -106,7 +114,7 @@ export async function updateSchedule(input: UpdateScheduleInput) {
   const updateResult = await prisma.orderSchedule.updateMany({
     where: { id: input.id, version: input.version },
     data: {
-      orderQuantity: input.orderQuantity,
+      ...(input.orderQuantity !== undefined ? { orderQuantity: input.orderQuantity } : {}),
       ...(input.stockQuantity !== undefined ? { stockQuantity: input.stockQuantity } : {}),
       version: { increment: 1 },
       updatedBy: input.ctx.userId ?? null,

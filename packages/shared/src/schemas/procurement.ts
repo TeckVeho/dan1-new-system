@@ -12,9 +12,9 @@ export const scheduleQuerySchema = z.object({
 
 export const orderScheduleUpdateSchema = z.object({
   id: z.string(),
-  orderQuantity: z.number().min(0),
-  stockQuantity: z.number().min(0).optional(),
-  version: z.number().int().min(0),
+  orderQty: z.coerce.number().min(0).optional(),
+  actualStock: z.coerce.number().min(0).optional(),
+  version: z.coerce.number().int().min(0),
 });
 
 export const mealCountSyncSchema = z.object({
