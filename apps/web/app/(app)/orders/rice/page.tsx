@@ -7,7 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { ApiError, getMasterList, getOrderWindows, getRiceOrders, saveRiceOrders } from "@/lib/api";
+import { ApiError, getOrderUnits, getOrderWindows, getRiceOrders, saveRiceOrders } from "@/lib/api";
 import { addDays, formatDateTime, formatRemaining, toWeekStart } from "@/lib/utils";
 import type { OrderWindowInfo, RiceOrder, Unit } from "@/lib/types";
 
@@ -75,7 +75,7 @@ export default function RiceOrdersPage() {
     try {
       const [orders, unitRes, windowRes] = await Promise.all([
         getRiceOrders({ customerId: scopedCustomerId || undefined, dateFrom: weekStart, dateTo: weekEnd }),
-        getMasterList<Unit>("units", { customerId: scopedCustomerId || undefined, pageSize: 200 }),
+        getOrderUnits({ customerId: scopedCustomerId || undefined }),
         getOrderWindows({
           orderType: "rice",
           from: weekStart,
@@ -84,7 +84,7 @@ export default function RiceOrdersPage() {
         }),
       ]);
       setRows(orders.length > 0 ? orders.map(toDraftRow) : [newDraftRow(), newDraftRow(), newDraftRow(), newDraftRow()]);
-      setUnits(unitRes.items);
+      setUnits(unitRes);
       setWindowInfo(windowRes);
     } catch (e) {
       setRows([]);
