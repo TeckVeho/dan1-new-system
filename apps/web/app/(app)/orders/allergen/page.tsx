@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable, type DataTableColumn } from "@/components/layout/DataTable";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { ApiError, getAllergenOrders, getMasterList, updateAllergenOrder } from "@/lib/api";
+import { ApiError, getAllergenOrders, getOrderUnits, updateAllergenOrder } from "@/lib/api";
 import { addDays, toWeekStart } from "@/lib/utils";
 import type { AllergenOrder, Unit } from "@/lib/types";
 
@@ -43,10 +43,10 @@ export default function AllergenOrdersPage() {
     try {
       const [orders, unitRes] = await Promise.all([
         getAllergenOrders({ customerId: scopedCustomerId || undefined, dateFrom: weekStart, dateTo: weekEnd }),
-        getMasterList<Unit>("units", { customerId: scopedCustomerId || undefined, pageSize: 200 }),
+        getOrderUnits({ customerId: scopedCustomerId || undefined }),
       ]);
       setRows(orders);
-      setUnits(unitRes.items);
+      setUnits(unitRes);
       setEdits({});
     } catch (e) {
       setRows([]);

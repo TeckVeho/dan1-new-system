@@ -8,7 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { ApiError, createAllergenOrder, getCustomerAllergens, getMasterList } from "@/lib/api";
+import { ApiError, createAllergenOrder, getAllergenOrderOptions } from "@/lib/api";
 import type { Unit } from "@/lib/types";
 
 type AllergenOption = { id: string; code: string; name: string };
@@ -40,12 +40,11 @@ export default function NewAllergenOrderPage() {
     setLoading(true);
     setError(null);
     try {
-      const [unitRes, allergenRes] = await Promise.all([
-        getMasterList<Unit>("units", { customerId: scopedCustomerId, pageSize: 200 }),
-        getCustomerAllergens(scopedCustomerId),
-      ]);
-      setUnits(unitRes.items);
-      setAllergens(allergenRes.items.map((row) => row.allergenType));
+      const { units: unitItems, allergens: allergenItems } = await getAllergenOrderOptions({
+        customerId: scopedCustomerId,
+      });
+      setUnits(unitItems);
+      setAllergens(allergenItems.map((row) => row.allergenType));
     } catch (e) {
       setError(e instanceof Error ? e.message : "読み込みに失敗しました");
     } finally {

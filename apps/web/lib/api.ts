@@ -172,6 +172,17 @@ export async function patchOrder(
   });
 }
 
+export async function getOrderUnits(params: { customerId?: string } = {}): Promise<Unit[]> {
+  return request<Unit[]>(`/orders/units${qs(params)}`);
+}
+
+export async function getAllergenOrderOptions(params: { customerId?: string } = {}): Promise<{
+  units: Unit[];
+  allergens: { id: string; allergenType: { id: string; code: string; name: string } }[];
+}> {
+  return request(`/orders/allergen/options${qs(params)}`);
+}
+
 export async function getRiceOrders(params: {
   customerId?: string;
   unitId?: string;

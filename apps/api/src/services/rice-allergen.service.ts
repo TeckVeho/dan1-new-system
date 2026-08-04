@@ -6,6 +6,27 @@ import { recordAuditLog } from "./audit.service.js";
 
 export type RiceOrderCell = { unitId: string; serviceDate: string; riceType: string; quantity: number; version?: number | null };
 
+/** Units visible on order forms (`order.read`); scoped to the given facility. */
+export async function getCustomerUnitsForOrder(customerId: bigint) {
+  return prisma.unit.findMany({
+    where: { customerId, deletedAt: null, isActive: true },
+    orderBy: { sortOrder: "asc" },
+  });
+}
+
+/** Dropdown data for allergen order screens (`order.read`). */
+export async function getAllergenOrderOptions(customerId: bigint) {
+  const [units, customerAllergens] = await Promise.all([
+    getCustomerUnitsForOrder(customerId),
+    prisma.customerAllergen.findMany({
+      where: { customerId, deletedAt: null },
+      include: { allergenType: true },
+      orderBy: { allergenType: { sortOrder: "asc" } },
+    }),
+  ]);
+  return { units, allergens: customerAllergens };
+}
+
 export async function getRiceOrders(customerId: bigint, dateFrom: Date, dateTo: Date, unitId?: bigint) {
   return prisma.riceOrder.findMany({
     where: { customerId, serviceDate: { gte: dateFrom, lte: dateTo }, ...(unitId ? { unitId } : {}) },
