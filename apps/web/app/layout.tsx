@@ -14,8 +14,8 @@ const notoSansJp = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "談 業務システム",
-  description: "談 業務システム",
+  title: "業務システム",
+  description: "業務システム",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
