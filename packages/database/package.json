@@ -1,0 +1,29 @@
+{
+  "name": "@dan1/database",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "generate": "npx dotenv-cli -e ../../.env -- prisma generate",
+    "migrate": "npx dotenv-cli -e ../../.env -- prisma migrate dev",
+    "migrate:deploy": "npx dotenv-cli -e ../../.env -- prisma migrate deploy",
+    "seed": "tsx prisma/seed.ts",
+    "studio": "npx dotenv-cli -e ../../.env -- prisma studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.9.0",
+    "dotenv": "^16.6.1"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^8.0.0",
+    "prisma": "^6.9.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.7.2"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

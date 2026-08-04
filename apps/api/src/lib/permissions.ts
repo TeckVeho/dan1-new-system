@@ -1,0 +1,124 @@
+export type PermissionCode = string;
+
+/**
+ * Bootstrap permission matrix mirroring docs/10_auth_roles.md §3.2.
+ * `role_permissions` in the DB takes precedence when populated; this
+ * matrix is the fallback so the system is usable before that table is
+ * seeded via the admin UI (FR-104, NFR-16-3).
+ */
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
+  system_admin: ["*"],
+  internal_admin: [
+    "announcement.read",
+    "announcement.manage",
+    "order.read",
+    "order.create",
+    "order.update",
+    "order.update_after_deadline",
+    "order.delete",
+    "order.export",
+    "order_alert.read",
+    "master.read",
+    "master.customer.update",
+    "master.deadline.update",
+    "master.swallow_category.update",
+    "master.production_pattern.update",
+    "master.allergen.update",
+    "master.allergen.delete",
+    "master.setout_direction.update",
+    "master.reference_rule.update",
+    "master.stock_item.update",
+    "master.qr.update",
+    "master.import",
+    "procurement.schedule.read",
+    "procurement.schedule.update",
+    "procurement.schedule.confirm",
+    "procurement.import.execute",
+    "procurement.import.rollback",
+    "procurement.stock_record.update",
+    "procurement.adjustment.update",
+    "procurement.recalculate",
+    "report.read",
+    "report.generate",
+    "document.read",
+    "document.upload",
+    "document.publish",
+    "document.regenerate",
+    "shipping.generate",
+    "shipping.send_api",
+    "invoice.read",
+    "invoice.close",
+    "invoice.issue",
+    "invoice.correct",
+    "sales_price.read",
+    "sales_price.generate",
+    "admin.user.read",
+    "admin.user.create",
+    "admin.user.update",
+    "admin.audit_log.read",
+    "admin.job.cancel",
+    "admin.impersonate",
+    "admin.settings.read",
+    "admin.settings.update",
+  ],
+  internal_staff: [
+    "announcement.read",
+    "order.read",
+    "order.create",
+    "order.update",
+    "order.export",
+    "order_alert.read",
+    "master.read",
+    "master.setout_direction.update",
+    "master.reference_rule.update",
+    "master.stock_item.update",
+    "procurement.schedule.read",
+    "procurement.schedule.update",
+    "procurement.schedule.confirm",
+    "procurement.import.execute",
+    "procurement.stock_record.update",
+    "procurement.adjustment.update",
+    "procurement.recalculate",
+    "report.read",
+    "report.generate",
+    "document.read",
+    "document.upload",
+    "document.publish",
+    "shipping.generate",
+    "invoice.read",
+    "sales_price.read",
+    "admin.user.read",
+    "admin.job.cancel",
+    "admin.settings.read",
+    "admin.settings.update",
+  ],
+  facility_admin: [
+    "announcement.read",
+    "order.read",
+    "order.create",
+    "order.update",
+    "order.export",
+    "report.read",
+    "document.read",
+    "invoice.read",
+  ],
+  facility_staff: [
+    "announcement.read",
+    "order.read",
+    "order.create",
+    "order.update",
+    "order.export",
+    "report.read",
+    "document.read",
+  ],
+};
+
+export function expandPermissions(roleCode: string, dbPermissions: string[]): Set<PermissionCode> {
+  const defaults = DEFAULT_ROLE_PERMISSIONS[roleCode] ?? [];
+  const merged = new Set<PermissionCode>([...defaults, ...dbPermissions]);
+  return merged;
+}
+
+export function hasPermission(granted: Set<PermissionCode>, required: PermissionCode): boolean {
+  return granted.has("*") || granted.has(required);
+}

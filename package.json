@@ -1,0 +1,29 @@
+{
+  "name": "dan1-new-system",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "jobs/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --filter=@dan1/api --filter=@dan1/web",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "npm run generate -w @dan1/database",
+    "db:migrate": "npm run migrate -w @dan1/database",
+    "db:seed": "npm run seed -w @dan1/database",
+    "db:studio": "npm run studio -w @dan1/database"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@10.9.2"
+}
