@@ -15,7 +15,10 @@ export async function listDocuments(query: ListDocumentsQuery) {
   const [items, totalCount] = await Promise.all([
     prisma.document.findMany({
       where,
-      include: { versions: { orderBy: { versionNo: "desc" }, take: 1 } },
+      include: {
+        customer: { select: { name: true } },
+        versions: { orderBy: { versionNo: "desc" }, take: 1 },
+      },
       orderBy: { createdAt: "desc" },
       skip: (query.page - 1) * query.perPage,
       take: query.perPage,
@@ -131,7 +134,8 @@ export async function listPlatingInstructions(query: ListPlatingInstructionsQuer
   const [items, totalCount] = await Promise.all([
     prisma.platingInstruction.findMany({
       where,
-      orderBy: { serviceDate: "asc" },
+      include: { menuTemplate: { select: { title: true } } },
+      orderBy: { serviceDate: "desc" },
       skip: (query.page - 1) * query.perPage,
       take: query.perPage,
     }),

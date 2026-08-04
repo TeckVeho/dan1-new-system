@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { DataTable, Pagination, type DataTableColumn } from "@/components/layout/DataTable";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { getPlatingInstructions } from "@/lib/api";
@@ -57,10 +57,13 @@ export default function PlatingInstructionsPage() {
         description="定型文から本文をスナップショットして作成します。アーカイブ後も過去の内容は変わりません"
         actions={
           user.type === "internal" ? (
-            <Button>
+            <Link
+              href="/plating-instructions/new"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-[13px] font-medium text-white hover:bg-primary-hover"
+            >
               <Plus className="h-3.5 w-3.5" />
               盛付指示書を作成
-            </Button>
+            </Link>
           ) : undefined
         }
       />

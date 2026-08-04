@@ -5,6 +5,8 @@ import type {
   DeadlineException,
   DeadlineRule,
   DocumentItem,
+  DocumentDetail,
+  DocumentVersion,
   ImportRecord,
   MenuTemplate,
   OrderListItem,
@@ -407,20 +409,159 @@ export const getDeadlineExceptions = (params?: { page?: number; pageSize?: numbe
 
 // --- 資料・帳票 ---
 
+type RawDocumentRow = {
+  id: string | number;
+  documentType: string;
+  title: string;
+  serviceMonth: string;
+  customerId?: string | null;
+  isActive?: boolean;
+  customer?: { name: string } | null;
+  versions?: Array<{
+    id: string | number;
+    versionNo: number;
+    generatedAt: string;
+    fileId: string | number;
+    supersededAt?: string | null;
+    settingsSnapshot?: Record<string, unknown>;
+  }>;
+};
+
+function normalizeDocumentItem(raw: RawDocumentRow): DocumentItem {
+  const latest = raw.versions?.[0];
+  const hasVersion = Boolean(latest);
+  return {
+    id: String(raw.id),
+    documentType: raw.documentType,
+    title: raw.title,
+    customerName: raw.customer?.name ?? null,
+    serviceMonth: raw.serviceMonth,
+    latestVersion: latest?.versionNo ?? 0,
+    generatedAt: latest?.generatedAt ?? null,
+    publishStatus: hasVersion && raw.isActive !== false ? "published" : "unpublished",
+    latestFileId: latest ? String(latest.fileId) : null,
+  };
+}
+
 export async function getDocuments(params: {
   customerId?: string;
   documentType?: string;
+  serviceMonth?: string;
   page?: number;
   pageSize?: number;
 }): Promise<Paginated<DocumentItem>> {
-  return requestList<DocumentItem>(
+  const res = await requestList<RawDocumentRow>(
     `/documents${qs({
       customerId: params.customerId,
       documentType: params.documentType,
+      serviceMonth: params.serviceMonth,
       page: params.page,
       perPage: params.pageSize,
     })}`,
   );
+  return { ...res, items: res.items.map(normalizeDocumentItem) };
+}
+
+export async function createDocument(payload: {
+  customerId?: string;
+  documentType: string;
+  title: string;
+  serviceMonth: string;
+}): Promise<DocumentDetail> {
+  const raw = await request<RawDocumentRow>("/documents", { method: "POST", body: JSON.stringify(payload) });
+  return {
+    ...normalizeDocumentItem(raw),
+    customerId: raw.customerId ? String(raw.customerId) : null,
+    isActive: raw.isActive !== false,
+  };
+}
+
+export async function getDocumentById(id: string): Promise<DocumentDetail & { versions: DocumentVersion[] }> {
+  const raw = await request<
+    RawDocumentRow & {
+      versions: Array<{
+        id: string | number;
+        versionNo: number;
+        fileId: string | number;
+        generatedAt: string;
+        supersededAt?: string | null;
+        settingsSnapshot?: Record<string, unknown>;
+      }>;
+    }
+  >(`/documents/${id}`);
+  return {
+    ...normalizeDocumentItem(raw),
+    customerId: raw.customerId ? String(raw.customerId) : null,
+    isActive: raw.isActive !== false,
+    versions: (raw.versions ?? []).map((v) => ({
+      id: String(v.id),
+      versionNo: v.versionNo,
+      fileId: String(v.fileId),
+      generatedAt: v.generatedAt,
+      supersededAt: v.supersededAt ?? null,
+      settingsSnapshot: v.settingsSnapshot ?? {},
+    })),
+  };
+}
+
+export async function getDocumentVersions(documentId: string): Promise<DocumentVersion[]> {
+  const rows = await request<
+    Array<{
+      id: string | number;
+      versionNo: number;
+      fileId: string | number;
+      generatedAt: string;
+      supersededAt?: string | null;
+      settingsSnapshot?: Record<string, unknown>;
+    }>
+  >(`/documents/${documentId}/versions`);
+  return rows.map((v) => ({
+    id: String(v.id),
+    versionNo: v.versionNo,
+    fileId: String(v.fileId),
+    generatedAt: v.generatedAt,
+    supersededAt: v.supersededAt ?? null,
+    settingsSnapshot: v.settingsSnapshot ?? {},
+  }));
+}
+
+export async function createDocumentVersion(documentId: string, fileId: string): Promise<DocumentVersion> {
+  const v = await request<{
+    id: string | number;
+    versionNo: number;
+    fileId: string | number;
+    generatedAt: string;
+    supersededAt?: string | null;
+    settingsSnapshot?: Record<string, unknown>;
+  }>(`/documents/${documentId}/versions`, { method: "POST", body: JSON.stringify({ fileId }) });
+  return {
+    id: String(v.id),
+    versionNo: v.versionNo,
+    fileId: String(v.fileId),
+    generatedAt: v.generatedAt,
+    supersededAt: v.supersededAt ?? null,
+    settingsSnapshot: v.settingsSnapshot ?? {},
+  };
+}
+
+export async function uploadFile(file: File): Promise<{ id: string }> {
+  const upload = await createFileUploadUrl({
+    originalName: file.name,
+    mimeType: file.type || "application/octet-stream",
+    sizeBytes: file.size,
+  });
+  await uploadFileContent(upload.uploadUrl, file, file.type || "application/octet-stream");
+  return registerFile({
+    storageKey: upload.storageKey,
+    originalName: file.name,
+    mimeType: file.type || "application/octet-stream",
+    sizeBytes: file.size,
+  });
+}
+
+export async function downloadFile(fileId: string): Promise<void> {
+  const { downloadUrl } = await getFileDownloadUrl(fileId);
+  window.open(`${getApiBase()}${downloadUrl}`, "_blank", "noopener,noreferrer");
 }
 
 export const getMenuTemplates = async (params?: {
@@ -459,7 +600,13 @@ export async function getPlatingInstructions(params: {
   page?: number;
   pageSize?: number;
 }): Promise<Paginated<PlatingInstruction>> {
-  return requestList<PlatingInstruction>(
+  const res = await requestList<{
+    id: string | number;
+    serviceDate: string;
+    bodySnapshot: string;
+    createdAt: string;
+    menuTemplate?: { title: string } | null;
+  }>(
     `/documents/plating-instructions${qs({
       serviceDateFrom: params.serviceDateFrom,
       serviceDateTo: params.serviceDateTo,
@@ -467,6 +614,39 @@ export async function getPlatingInstructions(params: {
       perPage: params.pageSize,
     })}`,
   );
+  return {
+    ...res,
+    items: res.items.map((row) => ({
+      id: String(row.id),
+      serviceDate: row.serviceDate.slice(0, 10),
+      customerName: "—",
+      menuTemplateTitle: row.menuTemplate?.title ?? null,
+      body: row.bodySnapshot,
+      createdAt: row.createdAt,
+    })),
+  };
+}
+
+export async function createPlatingInstruction(payload: {
+  serviceDate: string;
+  menuTemplateId?: string;
+  body: string;
+}): Promise<PlatingInstruction> {
+  const created = await request<{
+    id: string | number;
+    serviceDate: string;
+    bodySnapshot: string;
+    createdAt: string;
+    menuTemplateId?: string | null;
+  }>("/documents/plating-instructions", { method: "POST", body: JSON.stringify(payload) });
+  return {
+    id: String(created.id),
+    serviceDate: created.serviceDate.slice(0, 10),
+    customerName: "—",
+    menuTemplateTitle: null,
+    body: created.bodySnapshot,
+    createdAt: created.createdAt,
+  };
 }
 
 // --- 発注・在庫 ---

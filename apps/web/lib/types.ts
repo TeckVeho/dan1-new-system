@@ -169,8 +169,23 @@ export type DocumentItem = {
   customerName: string | null;
   serviceMonth: string;
   latestVersion: number;
-  generatedAt: string;
+  generatedAt: string | null;
   publishStatus: "published" | "unpublished";
+  latestFileId: string | null;
+};
+
+export type DocumentVersion = {
+  id: string;
+  versionNo: number;
+  fileId: string;
+  generatedAt: string;
+  supersededAt: string | null;
+  settingsSnapshot: Record<string, unknown>;
+};
+
+export type DocumentDetail = DocumentItem & {
+  customerId: string | null;
+  isActive: boolean;
 };
 
 export type MenuTemplate = {

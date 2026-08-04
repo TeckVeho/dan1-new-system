@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Download, Upload } from "lucide-react";
+import Link from "next/link";
+import { Download } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Alert } from "@/components/ui/alert";
 import { Badge, FilterChip } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DataTable, Pagination, type DataTableColumn } from "@/components/layout/DataTable";
+import { DocumentUploadForm } from "@/components/documents/DocumentUploadForm";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { getDocuments, getMenuTemplates } from "@/lib/api";
+import { downloadFile, getDocuments, getMenuTemplates } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
 import type { DocumentItem, MenuTemplate } from "@/lib/types";
 
@@ -20,6 +23,8 @@ function DocumentsTable() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(30);
+  const [search, setSearch] = useState("");
+  const [showUpload, setShowUpload] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,12 +46,29 @@ function DocumentsTable() {
     load();
   }, [load]);
 
+  const filteredRows = search
+    ? rows.filter((row) => row.title.includes(search) || row.documentType.includes(search))
+    : rows;
+
   const columns: DataTableColumn<DocumentItem>[] = [
+    {
+      key: "title",
+      header: "タイトル",
+      render: (row) => (
+        <Link href={`/documents/${row.id}`} className="text-primary hover:underline">
+          {row.title}
+        </Link>
+      ),
+    },
     { key: "documentType", header: "資料種別" },
     { key: "customerName", header: "対象施設", render: (row) => row.customerName ?? "共通" },
     { key: "serviceMonth", header: "対象年月" },
-    { key: "latestVersion", header: "最新版", render: (row) => `v${row.latestVersion}` },
-    { key: "generatedAt", header: "生成日時", render: (row) => formatDateTime(row.generatedAt) },
+    { key: "latestVersion", header: "最新版", render: (row) => (row.latestVersion ? `v${row.latestVersion}` : "—") },
+    {
+      key: "generatedAt",
+      header: "生成日時",
+      render: (row) => (row.generatedAt ? formatDateTime(row.generatedAt) : "—"),
+    },
     {
       key: "publishStatus",
       header: "公開状態",
@@ -56,11 +78,16 @@ function DocumentsTable() {
     {
       key: "actions",
       header: "",
-      render: () => (
-        <button type="button" className="rounded-md p-1.5 text-muted transition-colors hover:bg-bg hover:text-primary">
-          <Download className="h-3.5 w-3.5" />
-        </button>
-      ),
+      render: (row) =>
+        row.latestFileId ? (
+          <button
+            type="button"
+            className="rounded-md p-1.5 text-muted transition-colors hover:bg-bg hover:text-primary"
+            onClick={() => downloadFile(row.latestFileId!)}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
+        ) : null,
     },
   ];
 
@@ -71,17 +98,36 @@ function DocumentsTable() {
           {error}
         </Alert>
       ) : null}
-      {user.type === "internal" ? (
-        <div className="mb-4 flex justify-end">
-          <Button variant="secondary">
-            <Upload className="h-3.5 w-3.5" />
-            資料を登録
+
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Input
+          placeholder="タイトル・種別で検索"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-56"
+        />
+        {user.type === "internal" ? (
+          <Button variant="secondary" onClick={() => setShowUpload((v) => !v)}>
+            {showUpload ? "登録フォームを閉じる" : "資料を登録"}
           </Button>
+        ) : null}
+      </div>
+
+      {showUpload && user.type === "internal" ? (
+        <div className="mb-4">
+          <DocumentUploadForm
+            onCreated={() => {
+              setShowUpload(false);
+              void load();
+            }}
+            onCancel={() => setShowUpload(false)}
+          />
         </div>
       ) : null}
+
       <DataTable
         columns={columns}
-        rows={rows}
+        rows={filteredRows}
         getRowKey={(row) => row.id}
         loading={loading}
         emptyMessage="公開された資料がありません"
@@ -105,6 +151,7 @@ function TemplatesTable() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(30);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,7 +159,7 @@ function TemplatesTable() {
     setLoading(true);
     setError(null);
     try {
-      const res = await getMenuTemplates({ page, pageSize });
+      const res = await getMenuTemplates({ page, pageSize, search: search || undefined });
       setRows(res.items);
       setTotal(res.total);
     } catch (e) {
@@ -120,7 +167,7 @@ function TemplatesTable() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [page, pageSize, search]);
 
   useEffect(() => {
     load();
@@ -162,6 +209,19 @@ function TemplatesTable() {
           {error}
         </Alert>
       ) : null}
+
+      <div className="mb-4">
+        <Input
+          placeholder="定型文を検索"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          className="w-64"
+        />
+      </div>
+
       <DataTable
         columns={columns}
         rows={rows}
