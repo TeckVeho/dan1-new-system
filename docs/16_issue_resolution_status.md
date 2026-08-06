@@ -274,6 +274,7 @@
 
 | ファイル | 内容 |
 |---------|------|
+| `17_client_additional_requests.md` | 本資料のクライアント向け版（ID を使わず出典資料・部署・項目名で提示。リリース段階の提案を含む） |
 | `01_as_is_issues.md` | 課題の原文・現行システムの状態（REQ-01〜24） |
 | `03_functional_requirements.md` | 機能要件（FR）と REQ の対応 |
 | `07_screen_spec.md` | 画面一覧と実装状況 |
