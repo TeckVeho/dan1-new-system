@@ -120,6 +120,19 @@ model Session {
   @@map("sessions")
 }
 
+model PasswordResetToken {
+  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userType  String    @map("user_type") @db.VarChar(20)
+  userId    BigInt?   @map("user_id") @db.UnsignedBigInt
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at") @db.DateTime(3)
+  usedAt    DateTime? @map("used_at") @db.DateTime(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
 model CustomerGroup {
   id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
   code      String    @unique @db.VarChar(20)
@@ -164,6 +177,8 @@ model Customer {
   productionPatterns     CustomerProductionPattern[]
   referenceRules         CustomerReferenceRule[]
   orderSuspensions       OrderSuspension[]
+  longHolidays           LongHoliday[]
+  orderAlertStatuses     OrderAlertStatus[]
   documents              Document[]
   mealOrders             MealOrder[]
   riceOrders             RiceOrder[]
@@ -228,6 +243,20 @@ model MealType {
   @@map("meal_types")
 }
 
+model RiceType {
+  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  code      String    @unique @db.VarChar(20)
+  name      String    @db.VarChar(50)
+  sortOrder Int       @default(0) @map("sort_order")
+  isActive  Boolean   @default(true) @map("is_active")
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+
+  @@index([sortOrder])
+  @@map("rice_types")
+}
+
 model MenuKind {
   id                BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
   code              String    @unique @db.VarChar(20)
@@ -244,6 +273,21 @@ model MenuKind {
 
   @@index([swallowCategoryId])
   @@map("menu_kinds")
+}
+
+model DietType {
+  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  code      String    @unique @db.VarChar(20)
+  name      String    @db.VarChar(50)
+  sortOrder Int       @default(0) @map("sort_order")
+  isActive  Boolean   @default(true) @map("is_active")
+  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+
+  documentOutputRules DocumentOutputRule[]
+
+  @@map("diet_types")
 }
 
 model AllergenType {
@@ -263,14 +307,16 @@ model AllergenType {
 }
 
 model OrderType {
-  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  code      String    @unique @db.VarChar(20)
-  name      String    @db.VarChar(50)
-  sortOrder Int       @default(0) @map("sort_order")
-  isActive  Boolean   @default(true) @map("is_active")
-  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
-  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  id                       BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  code                     String    @unique @db.VarChar(20)
+  name                     String    @db.VarChar(50)
+  linksToProductionReports Boolean   @default(true) @map("links_to_production_reports")
+  linksToSales             Boolean   @default(true) @map("links_to_sales")
+  sortOrder                Int       @default(0) @map("sort_order")
+  isActive                 Boolean   @default(true) @map("is_active")
+  deletedAt                DateTime? @map("deleted_at") @db.DateTime(3)
+  createdAt                DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
 
   mealOrders MealOrder[]
 
@@ -370,19 +416,73 @@ model OrderSuspension {
 }
 
 model Announcement {
-  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  title       String    @db.VarChar(200)
-  body        String    @db.Text
-  category    String    @db.VarChar(50)
-  publishFrom DateTime  @map("publish_from") @db.DateTime(3)
-  publishTo   DateTime? @map("publish_to") @db.DateTime(3)
-  audience    String    @default("all") @db.VarChar(20)
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.DateTime(3)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  title           String    @db.VarChar(200)
+  body            String    @db.Text
+  category        String    @db.VarChar(50)
+  severity        String    @default("info") @db.VarChar(20)
+  isPinned        Boolean   @default(false) @map("is_pinned")
+  publishFrom     DateTime  @map("publish_from") @db.DateTime(3)
+  publishTo       DateTime? @map("publish_to") @db.DateTime(3)
+  audience        String    @default("all") @db.VarChar(20)
+  targetScopeType String    @default("all") @map("target_scope_type") @db.VarChar(20)
+  targetScopeId   BigInt?   @map("target_scope_id") @db.UnsignedBigInt
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+
+  reads AnnouncementRead[]
 
   @@index([publishFrom, publishTo])
   @@map("announcements")
+}
+
+model AnnouncementRead {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  announcementId BigInt   @map("announcement_id") @db.UnsignedBigInt
+  readerType     String   @map("reader_type") @db.VarChar(20)
+  readerId       BigInt   @map("reader_id") @db.UnsignedBigInt
+  readAt         DateTime @default(now()) @map("read_at") @db.DateTime(3)
+
+  announcement Announcement @relation(fields: [announcementId], references: [id])
+
+  @@unique([announcementId, readerType, readerId])
+  @@index([readerType, readerId])
+  @@map("announcement_reads")
+}
+
+model LongHoliday {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  customerId BigInt?   @map("customer_id") @db.UnsignedBigInt
+  name       String?   @db.VarChar(100)
+  startDate  DateTime  @map("start_date") @db.Date
+  endDate    DateTime  @map("end_date") @db.Date
+  reason     String?   @db.VarChar(255)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([customerId, startDate, endDate])
+  @@map("long_holidays")
+}
+
+model OrderAlertStatus {
+  id          BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  customerId  BigInt    @map("customer_id") @db.UnsignedBigInt
+  serviceDate DateTime  @map("service_date") @db.Date
+  status      String    @default("unhandled") @db.VarChar(20)
+  handledBy   BigInt?   @map("handled_by") @db.UnsignedBigInt
+  handledAt   DateTime? @map("handled_at") @db.DateTime(3)
+  note        String?   @db.VarChar(500)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@unique([customerId, serviceDate])
+  @@index([status])
+  @@map("order_alert_statuses")
 }
 
 // ─── Orders ──────────────────────────────────────────────────────────────────
@@ -395,13 +495,17 @@ model MealOrder {
   mealTypeId  BigInt          @map("meal_type_id") @db.UnsignedBigInt
   menuKindId  BigInt          @map("menu_kind_id") @db.UnsignedBigInt
   orderTypeId BigInt          @map("order_type_id") @db.UnsignedBigInt
-  quantity    Int             @default(0)
-  status      MealOrderStatus @default(draft)
-  version     Int             @default(0)
-  createdAt   DateTime        @default(now()) @map("created_at") @db.DateTime(3)
-  updatedAt   DateTime        @updatedAt @map("updated_at") @db.DateTime(3)
-  createdBy   BigInt?         @map("created_by") @db.UnsignedBigInt
-  updatedBy   BigInt?         @map("updated_by") @db.UnsignedBigInt
+  quantity            Int             @default(0)
+  provisionalQuantity Int?            @map("provisional_quantity")
+  status              MealOrderStatus @default(draft)
+  confirmedAt         DateTime?       @map("confirmed_at") @db.DateTime(3)
+  orderedByType       String?         @map("ordered_by_type") @db.VarChar(20)
+  orderedById         BigInt?         @map("ordered_by_id") @db.UnsignedBigInt
+  version             Int             @default(0)
+  createdAt           DateTime        @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.DateTime(3)
+  createdBy           BigInt?         @map("created_by") @db.UnsignedBigInt
+  updatedBy           BigInt?         @map("updated_by") @db.UnsignedBigInt
 
   customer  Customer  @relation(fields: [customerId], references: [id])
   unit      Unit      @relation(fields: [unitId], references: [id])
@@ -459,10 +563,12 @@ model OrderChangeLog {
   id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
   mealOrderId BigInt   @map("meal_order_id") @db.UnsignedBigInt
   fieldName   String   @map("field_name") @db.VarChar(50)
-  beforeValue String?  @map("before_value") @db.VarChar(50)
-  afterValue  String?  @map("after_value") @db.VarChar(50)
-  changedBy   BigInt?  @map("changed_by") @db.UnsignedBigInt
-  changedAt   DateTime @default(now()) @map("changed_at") @db.DateTime(3)
+  beforeValue   String?  @map("before_value") @db.VarChar(50)
+  afterValue    String?  @map("after_value") @db.VarChar(50)
+  reason        String?  @db.VarChar(255)
+  changedBy     BigInt?  @map("changed_by") @db.UnsignedBigInt
+  changedByType String?  @map("changed_by_type") @db.VarChar(20)
+  changedAt     DateTime @default(now()) @map("changed_at") @db.DateTime(3)
 
   mealOrder MealOrder @relation(fields: [mealOrderId], references: [id])
 
@@ -522,28 +628,33 @@ model DocumentVersion {
 
 model DocumentOutputRule {
   id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  mealTypeCode String    @map("meal_type_code") @db.VarChar(20)
+  dietTypeCode String    @map("diet_type_code") @db.VarChar(20)
   documentType String    @map("document_type") @db.VarChar(50)
   isEnabled    Boolean   @default(true) @map("is_enabled")
   sortOrder    Int       @default(0) @map("sort_order")
+  validFrom    DateTime  @default(dbgenerated("'2020-01-01'")) @map("valid_from") @db.Date
+  validTo      DateTime? @map("valid_to") @db.Date
   createdAt    DateTime  @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
 
-  @@unique([mealTypeCode, documentType])
+  dietType DietType @relation(fields: [dietTypeCode], references: [code])
+
+  @@unique([dietTypeCode, documentType, validFrom], map: "dor_diet_doc_from_key")
   @@map("document_output_rules")
 }
 
 model MenuTemplate {
-  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  title     String    @db.VarChar(200)
-  body      String    @db.Text
-  tags      Json?
-  sortOrder Int       @default(0) @map("sort_order")
-  isActive  Boolean   @default(true) @map("is_active")
-  useCount  Int       @default(0) @map("use_count")
-  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
-  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  title      String    @db.VarChar(200)
+  body       String    @db.Text
+  tags       Json?
+  sortOrder  Int       @default(0) @map("sort_order")
+  isActive   Boolean   @default(true) @map("is_active")
+  useCount   Int       @default(0) @map("use_count")
+  lastUsedAt DateTime? @map("last_used_at") @db.DateTime(3)
+  deletedAt  DateTime? @map("deleted_at") @db.DateTime(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
 
   platingInstructions PlatingInstruction[]
 
@@ -621,15 +732,23 @@ model StockItem {
 }
 
 model ProductionPattern {
-  id        BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
-  code      String    @unique @db.VarChar(20)
-  name      String    @db.VarChar(100)
-  leadDays  Int       @map("lead_days")
-  sortOrder Int       @default(0) @map("sort_order")
-  isActive  Boolean   @default(true) @map("is_active")
-  deletedAt DateTime? @map("deleted_at") @db.DateTime(3)
-  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(3)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+  id              BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  code            String    @unique @db.VarChar(20)
+  name            String    @db.VarChar(100)
+  leadDays        Int       @map("lead_days")
+  pickupOffsetD0  Int       @default(0) @map("pickup_offset_d0")
+  pickupOffsetD1  Int       @default(1) @map("pickup_offset_d1")
+  pickupOffsetD2  Int       @default(2) @map("pickup_offset_d2")
+  pickupOffsetD3  Int       @default(3) @map("pickup_offset_d3")
+  arrivalOffsetD1 Int       @default(1) @map("arrival_offset_d1")
+  arrivalOffsetD2 Int       @default(2) @map("arrival_offset_d2")
+  arrivalOffsetD3 Int       @default(3) @map("arrival_offset_d3")
+  carrierCode     String?   @map("carrier_code") @db.VarChar(20)
+  sortOrder       Int       @default(0) @map("sort_order")
+  isActive        Boolean   @default(true) @map("is_active")
+  deletedAt       DateTime? @map("deleted_at") @db.DateTime(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
 
   customerAssignments CustomerProductionPattern[]
 
@@ -871,16 +990,18 @@ model JobLog {
 }
 
 model Notification {
-  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
-  userId    BigInt?  @map("user_id") @db.UnsignedBigInt
-  title     String   @db.VarChar(200)
-  body      String   @db.Text
-  category  String   @db.VarChar(50)
-  isRead    Boolean  @default(false) @map("is_read")
-  linkUrl   String?  @map("link_url") @db.VarChar(500)
-  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId         BigInt?  @map("user_id") @db.UnsignedBigInt
+  customerUserId BigInt?  @map("customer_user_id") @db.UnsignedBigInt
+  title          String   @db.VarChar(200)
+  body           String   @db.Text
+  category       String   @db.VarChar(50)
+  isRead         Boolean  @default(false) @map("is_read")
+  linkUrl        String?  @map("link_url") @db.VarChar(500)
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(3)
 
   @@index([userId, isRead])
+  @@index([customerUserId, isRead])
   @@map("notifications")
 }
 

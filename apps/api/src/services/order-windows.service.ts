@@ -111,10 +111,18 @@ export async function getOrderWindows(query: OrderWindowsQuery): Promise<OrderWi
 
   let changeWindow: OrderWindowsResult["changeWindow"];
   if (query.orderType === "change") {
-    const editableDays = windows.filter((w) => w.editable);
-    if (editableDays.length > 0) {
-      const from = editableDays[0].serviceDate;
-      const to = editableDays[editableDays.length - 1].serviceDate;
+    const utcToday = toDateOnly(new Date());
+    const changeableDays = windows.filter((w) => {
+      const resolved = deadlineMap.get(w.serviceDate);
+      if (!resolved) return false;
+      const serviceDate = toDateOnly(w.serviceDate);
+      if (serviceDate.getTime() < utcToday.getTime()) return false;
+      const pastDeadline = resolved.deadlineAt.getTime() <= now;
+      return pastDeadline || resolved.deadlineAt.getTime() > now;
+    });
+    if (changeableDays.length > 0) {
+      const from = changeableDays[0].serviceDate;
+      const to = changeableDays[changeableDays.length - 1].serviceDate;
       changeWindow = {
         serviceDateFrom: from,
         serviceDateTo: to,

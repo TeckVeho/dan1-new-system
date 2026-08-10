@@ -43,6 +43,7 @@ export async function seedDemoData(prisma: PrismaClient, refs: MasterRefs) {
       riceEnabled: true,
       allergenEnabled: true,
       defaultMenuKind: "normal",
+      dietTypeCode: "normal",
       notes: "デモ用施設設定",
     },
   };

@@ -17,12 +17,16 @@ import {
   customerGroupSchema,
   businessCalendarSchema,
   orderSuspensionSchema,
+  dietTypeSchema,
   documentOutputRuleSchema,
   orderTypeSchema,
+  riceTypeSchema,
+  longHolidaySchema,
 } from "@dan1/shared";
 import { createMasterRouter } from "./crud-factory.js";
 import { customerSettingsRouter } from "./settings.routes.js";
 import { customerAllergensRouter } from "./customer-allergens.routes.js";
+import { customerProductionPatternsRouter } from "./customer-production-patterns.routes.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { sendData, sendNoContent } from "../../lib/response.js";
 import { NotFoundError } from "../../lib/errors.js";
@@ -50,6 +54,17 @@ mastersRouter.use(
     model: prisma.mealType,
     createSchema: mealTypeSchema,
     updateSchema: mealTypeSchema.partial(),
+    searchFields: ["name", "code"],
+  }),
+);
+
+mastersRouter.use(
+  "/rice-types",
+  createMasterRouter({
+    entityType: "rice_type",
+    model: prisma.riceType,
+    createSchema: riceTypeSchema,
+    updateSchema: riceTypeSchema.partial(),
     searchFields: ["name", "code"],
   }),
 );
@@ -88,11 +103,15 @@ mastersRouter.use(
     writePermission: "master.customer.update",
     toCreateData: (input) => ({
       ...input,
+      customerGroupId: input.customerGroupId ? BigInt(input.customerGroupId) : null,
       contractStartDate: new Date(input.contractStartDate),
       contractEndDate: input.contractEndDate ? new Date(input.contractEndDate) : null,
     }),
     toUpdateData: (input) => ({
       ...input,
+      ...(input.customerGroupId !== undefined
+        ? { customerGroupId: input.customerGroupId ? BigInt(input.customerGroupId) : null }
+        : {}),
       ...(input.contractStartDate ? { contractStartDate: new Date(input.contractStartDate) } : {}),
       ...(input.contractEndDate !== undefined
         ? { contractEndDate: input.contractEndDate ? new Date(input.contractEndDate) : null }
@@ -312,6 +331,7 @@ mastersRouter.delete(
 
 mastersRouter.use("/customers/:customerId/settings", customerSettingsRouter);
 mastersRouter.use("/customers/:customerId/allergens", customerAllergensRouter);
+mastersRouter.use("/customers/:customerId/production-patterns", customerProductionPatternsRouter);
 
 mastersRouter.use(
   "/allergens",
@@ -345,6 +365,34 @@ mastersRouter.use(
     createSchema: orderTypeSchema,
     updateSchema: orderTypeSchema.partial(),
     searchFields: ["name", "code"],
+    writePermission: "master.customer.update",
+  }),
+);
+
+mastersRouter.use(
+  "/long-holidays",
+  createMasterRouter({
+    entityType: "long_holiday",
+    model: prisma.longHoliday,
+    createSchema: longHolidaySchema,
+    updateSchema: longHolidaySchema.partial(),
+    searchFields: ["name", "reason"],
+    defaultSortField: "startDate",
+    softDelete: false,
+    writePermission: "master.long_holiday.update",
+    filterQuery: { customerId: "customerId" },
+    toCreateData: (input) => ({
+      ...input,
+      customerId: input.customerId ? BigInt(input.customerId) : null,
+      startDate: new Date(input.startDate),
+      endDate: new Date(input.endDate),
+    }),
+    toUpdateData: (input) => ({
+      ...input,
+      ...(input.customerId !== undefined ? { customerId: input.customerId ? BigInt(input.customerId) : null } : {}),
+      ...(input.startDate ? { startDate: new Date(input.startDate) } : {}),
+      ...(input.endDate ? { endDate: new Date(input.endDate) } : {}),
+    }),
   }),
 );
 
@@ -393,13 +441,42 @@ mastersRouter.use(
 );
 
 mastersRouter.use(
+  "/diet-types",
+  createMasterRouter({
+    entityType: "diet_type",
+    model: prisma.dietType,
+    createSchema: dietTypeSchema,
+    updateSchema: dietTypeSchema.partial(),
+    searchFields: ["code", "name"],
+    writePermission: "master.customer.update",
+  }),
+);
+
+mastersRouter.use(
   "/document-output-rules",
   createMasterRouter({
     entityType: "document_output_rule",
     model: prisma.documentOutputRule,
     createSchema: documentOutputRuleSchema,
     updateSchema: documentOutputRuleSchema.partial(),
-    searchFields: ["mealTypeCode", "documentType"],
+    searchFields: ["dietTypeCode", "documentType"],
     softDelete: false,
+    writePermission: "master.customer.update",
+    toCreateData: (input) => ({
+      dietTypeCode: input.dietTypeCode,
+      documentType: input.documentType,
+      isEnabled: input.isEnabled,
+      sortOrder: input.sortOrder,
+      validFrom: input.validFrom ? new Date(input.validFrom) : new Date("2020-01-01"),
+      validTo: input.validTo ? new Date(input.validTo) : null,
+    }),
+    toUpdateData: (input) => ({
+      ...(input.dietTypeCode !== undefined ? { dietTypeCode: input.dietTypeCode } : {}),
+      ...(input.documentType !== undefined ? { documentType: input.documentType } : {}),
+      ...(input.isEnabled !== undefined ? { isEnabled: input.isEnabled } : {}),
+      ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
+      ...(input.validFrom !== undefined ? { validFrom: new Date(input.validFrom) } : {}),
+      ...(input.validTo !== undefined ? { validTo: input.validTo ? new Date(input.validTo) : null } : {}),
+    }),
   }),
 );

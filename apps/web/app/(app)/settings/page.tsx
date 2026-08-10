@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,8 @@ import { changePassword, getSystemSettings, putSystemSettings, type SystemSettin
 
 type Tab = "account" | "system";
 
-function PasswordForm() {
+function PasswordForm({ required }: { required?: boolean }) {
+  const { refresh } = useAuth();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -38,6 +40,7 @@ function PasswordForm() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "変更に失敗しました");
     } finally {
@@ -48,6 +51,11 @@ function PasswordForm() {
   return (
     <section className="rounded-lg border border-border bg-white px-4 py-4">
       <h2 className="text-[15px] font-semibold text-text">パスワード変更</h2>
+      {required ? (
+        <Alert variant="warning" className="mt-3">
+          初回ログインのため、パスワードの変更が必要です。
+        </Alert>
+      ) : null}
       <p className="mt-1 text-[12px] text-muted">12文字以上、英大文字・英小文字・数字・記号のうち3種以上を含めてください</p>
 
       {error ? (
@@ -189,7 +197,9 @@ function SystemSettingsForm() {
 }
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
+  const searchParams = useSearchParams();
+  const required = searchParams.get("required") === "1" || user.passwordChangeRequired;
   const [tab, setTab] = useState<Tab>("account");
 
   return (
@@ -203,7 +213,7 @@ export default function SettingsPage() {
         </div>
       ) : null}
 
-      {tab === "account" || user.type !== "internal" ? <PasswordForm /> : <SystemSettingsForm />}
+      {tab === "account" || user.type !== "internal" ? <PasswordForm required={required} /> : <SystemSettingsForm />}
     </div>
   );
 }

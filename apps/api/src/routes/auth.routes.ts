@@ -1,15 +1,35 @@
 import { Router } from "express";
-import { prisma } from "@dan1/database";
-import { loginSchema, impersonateSchema } from "@dan1/shared";
+import {
+  loginSchema,
+  impersonateSchema,
+  passwordChangeSchema,
+  passwordResetRequestSchema,
+  passwordResetConfirmSchema,
+} from "@dan1/shared";
 import { env, isProduction } from "../config/env.js";
-import { authenticate } from "../middleware/auth.js";
-import { login, logout, startImpersonation, endImpersonation } from "../services/auth.service.js";
+import { authenticate, authorize } from "../middleware/auth.js";
+import { rateLimit } from "../middleware/rateLimit.js";
+import {
+  login,
+  logout,
+  changePassword,
+  requestPasswordReset,
+  confirmPasswordReset,
+  startImpersonation,
+  endImpersonation,
+  getAuthUserProfile,
+} from "../services/auth.service.js";
 import { recordAuditLog } from "../services/audit.service.js";
-import { sendData, sendNoContent } from "../lib/response.js";
+import { sendData, sendMessage, sendNoContent } from "../lib/response.js";
 import type { RequestContext } from "../types/context.js";
-import type { AuthUser } from "@dan1/shared";
 
 export const authRouter = Router();
+
+const loginRateLimit = rateLimit({
+  windowMs: 60_000,
+  max: 15,
+  keyFn: (req) => req.ip ?? "unknown",
+});
 
 function cookieOptions(expiresAt: Date) {
   return {
@@ -21,36 +41,7 @@ function cookieOptions(expiresAt: Date) {
   };
 }
 
-async function buildAuthUser(ctx: RequestContext): Promise<AuthUser> {
-  if (ctx.userType === "internal") {
-    let customerName: string | undefined;
-    if (ctx.impersonatingCustomerId) {
-      const customer = await prisma.customer.findUnique({ where: { id: ctx.impersonatingCustomerId } });
-      customerName = customer?.name;
-    }
-    return {
-      id: ctx.userId!.toString(),
-      name: ctx.name,
-      type: "internal",
-      role: ctx.roleCode,
-      customerId: ctx.impersonatingCustomerId?.toString(),
-      customerName,
-      impersonating: Boolean(ctx.impersonatingCustomerId),
-    };
-  }
-
-  const customer = await prisma.customer.findUnique({ where: { id: ctx.customerId! } });
-  return {
-    id: ctx.customerUserId!.toString(),
-    name: ctx.name,
-    type: "facility",
-    role: ctx.roleCode,
-    customerId: ctx.customerId!.toString(),
-    customerName: customer?.name,
-  };
-}
-
-authRouter.post("/login", async (req, res, next) => {
+authRouter.post("/login", loginRateLimit, async (req, res, next) => {
   try {
     const input = loginSchema.parse(req.body);
     const result = await login(input, { ipAddress: req.ip, userAgent: req.get("user-agent") ?? undefined });
@@ -61,7 +52,7 @@ authRouter.post("/login", async (req, res, next) => {
       entityType: "session",
       entityId: result.context.sessionId,
     });
-    const user = await buildAuthUser(result.context);
+    const user = await getAuthUserProfile(result.context);
     sendData(res, user);
   } catch (error) {
     next(error);
@@ -82,14 +73,51 @@ authRouter.post("/logout", authenticate, async (req, res, next) => {
 
 authRouter.get("/me", authenticate, async (req, res, next) => {
   try {
-    const user = await buildAuthUser(req.context!);
+    const user = await getAuthUserProfile(req.context!);
     sendData(res, user);
   } catch (error) {
     next(error);
   }
 });
 
-authRouter.post("/impersonate", authenticate, async (req, res, next) => {
+authRouter.post("/password/change", authenticate, async (req, res, next) => {
+  try {
+    const input = passwordChangeSchema.parse(req.body);
+    await changePassword(req.context!, input);
+    await recordAuditLog({
+      ctx: req.context!,
+      action: "update",
+      entityType: "user",
+      entityId: req.context!.userId ?? req.context!.customerUserId!,
+      after: { passwordChanged: true },
+    });
+    sendNoContent(res);
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post("/password-reset/request", loginRateLimit, async (req, res, next) => {
+  try {
+    const input = passwordResetRequestSchema.parse(req.body);
+    await requestPasswordReset(input.loginId);
+    sendMessage(res, "登録されているメールアドレスがある場合、再設定手順を送信しました");
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post("/password-reset/confirm", async (req, res, next) => {
+  try {
+    const input = passwordResetConfirmSchema.parse(req.body);
+    await confirmPasswordReset(input.token, input.newPassword);
+    sendMessage(res, "パスワードを再設定しました。新しいパスワードでログインしてください");
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post("/impersonate", authenticate, authorize("admin.impersonate"), async (req, res, next) => {
   try {
     const input = impersonateSchema.parse(req.body);
     const customerId = BigInt(input.customerId);
@@ -102,14 +130,14 @@ authRouter.post("/impersonate", authenticate, async (req, res, next) => {
       after: { started: true },
     });
     const refreshedCtx: RequestContext = { ...req.context!, impersonatingCustomerId: customerId };
-    const user = await buildAuthUser(refreshedCtx);
+    const user = await getAuthUserProfile(refreshedCtx);
     sendData(res, user);
   } catch (error) {
     next(error);
   }
 });
 
-authRouter.delete("/impersonate", authenticate, async (req, res, next) => {
+authRouter.delete("/impersonate", authenticate, authorize("admin.impersonate"), async (req, res, next) => {
   try {
     const endedLog = await endImpersonation(req.context!);
     if (endedLog) {
@@ -121,7 +149,7 @@ authRouter.delete("/impersonate", authenticate, async (req, res, next) => {
         after: { ended: true },
       });
     }
-    const user = await buildAuthUser({ ...req.context!, impersonatingCustomerId: undefined });
+    const user = await getAuthUserProfile({ ...req.context!, impersonatingCustomerId: undefined });
     sendData(res, user);
   } catch (error) {
     next(error);

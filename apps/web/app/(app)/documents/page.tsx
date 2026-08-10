@@ -210,7 +210,7 @@ function TemplatesTable() {
         </Alert>
       ) : null}
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <Input
           placeholder="定型文を検索"
           value={search}
@@ -220,6 +220,12 @@ function TemplatesTable() {
           }}
           className="w-64"
         />
+        <Link
+          href="/masters/setout-directions"
+          className="text-[13px] text-primary hover:underline"
+        >
+          並び順・重複整理はマスタ画面で管理 →
+        </Link>
       </div>
 
       <DataTable

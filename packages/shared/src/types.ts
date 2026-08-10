@@ -22,7 +22,11 @@ export type AuthUser = {
   name: string;
   type: "internal" | "facility";
   role: string;
+  roleName: string;
+  employeeCode?: string;
+  haccpNo?: string;
   customerId?: string;
   customerName?: string;
   impersonating?: boolean;
+  passwordChangeRequired?: boolean;
 };

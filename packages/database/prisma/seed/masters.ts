@@ -29,9 +29,9 @@ export async function seedMasters(prisma: PrismaClient): Promise<MasterRefs> {
   const roles = [
     { code: "system_admin", name: "システム管理者", scope: "internal" as const, sortOrder: 1 },
     { code: "internal_admin", name: "社内管理者", scope: "internal" as const, sortOrder: 2 },
-    { code: "internal_staff", name: "社内スタッフ", scope: "internal" as const, sortOrder: 3 },
+    { code: "internal_staff", name: "社内一般", scope: "internal" as const, sortOrder: 3 },
     { code: "facility_admin", name: "施設管理者", scope: "facility" as const, sortOrder: 4 },
-    { code: "facility_staff", name: "施設スタッフ", scope: "facility" as const, sortOrder: 5 },
+    { code: "facility_staff", name: "施設一般", scope: "facility" as const, sortOrder: 5 },
   ];
 
   for (const role of roles) {
@@ -208,6 +208,15 @@ export async function seedMasters(prisma: PrismaClient): Promise<MasterRefs> {
     await prisma.mealType.upsert({ where: { code: mt.code }, update: mt, create: mt });
   }
 
+  const riceTypeDefs = [
+    { code: "mix", name: "混ぜご飯", sortOrder: 1 },
+    { code: "white", name: "白飯", sortOrder: 2 },
+    { code: "brown", name: "玄米", sortOrder: 3 },
+  ] as const;
+  for (const rt of riceTypeDefs) {
+    await prisma.riceType.upsert({ where: { code: rt.code }, update: rt, create: rt });
+  }
+
   const menuKindDefs = [
     { code: "normal", name: "通常", sortOrder: 1, swallowCategoryId: regularSwallow.id },
     { code: "thin", name: "薄味", sortOrder: 2, swallowCategoryId: regularSwallow.id },
@@ -281,11 +290,21 @@ export async function seedMasters(prisma: PrismaClient): Promise<MasterRefs> {
     stockItems.push({ id: row.id, itemCode: row.itemCode });
   }
 
-  const productionPattern = await prisma.productionPattern.upsert({
-    where: { code: "D0" },
-    update: {},
-    create: { code: "D0", name: "当日製造", leadDays: 0, sortOrder: 1 },
-  });
+  const productionPatternDefs = [
+    { code: "D0", name: "当日製造", leadDays: 0, sortOrder: 1, pickupOffsetD0: 0, pickupOffsetD1: 1, pickupOffsetD2: 2, pickupOffsetD3: 3, arrivalOffsetD1: 1, arrivalOffsetD2: 2, arrivalOffsetD3: 3 },
+    { code: "D1", name: "前日製造", leadDays: 1, sortOrder: 2, pickupOffsetD0: 0, pickupOffsetD1: 1, pickupOffsetD2: 2, pickupOffsetD3: 3, arrivalOffsetD1: 1, arrivalOffsetD2: 2, arrivalOffsetD3: 3 },
+    { code: "D2", name: "2日前製造", leadDays: 2, sortOrder: 3, pickupOffsetD0: 0, pickupOffsetD1: 1, pickupOffsetD2: 2, pickupOffsetD3: 3, arrivalOffsetD1: 1, arrivalOffsetD2: 2, arrivalOffsetD3: 3 },
+    { code: "D3", name: "3日前製造", leadDays: 3, sortOrder: 4, pickupOffsetD0: 0, pickupOffsetD1: 1, pickupOffsetD2: 2, pickupOffsetD3: 3, arrivalOffsetD1: 1, arrivalOffsetD2: 2, arrivalOffsetD3: 3 },
+  ] as const;
+  let productionPattern: { id: bigint } = { id: 0n };
+  for (const pp of productionPatternDefs) {
+    const row = await prisma.productionPattern.upsert({
+      where: { code: pp.code },
+      update: { name: pp.name, leadDays: pp.leadDays, sortOrder: pp.sortOrder },
+      create: pp,
+    });
+    if (pp.code === "D0") productionPattern = row;
+  }
 
   const referenceRule = await prisma.referenceRule.upsert({
     where: { code: "same_menu_180d" },
@@ -310,16 +329,23 @@ export async function seedMasters(prisma: PrismaClient): Promise<MasterRefs> {
     : await prisma.menuTemplate.create({ data: menuTemplateData });
 
   const documentOutputRules = [
-    { mealTypeCode: "breakfast", documentType: "menu_sheet", sortOrder: 1 },
-    { mealTypeCode: "lunch", documentType: "menu_sheet", sortOrder: 2 },
-    { mealTypeCode: "dinner", documentType: "menu_sheet", sortOrder: 3 },
-    { mealTypeCode: "lunch", documentType: "plating_instruction", sortOrder: 4 },
+    { dietTypeCode: "normal", documentType: "menu_sheet", sortOrder: 1 },
+    { dietTypeCode: "light_taste", documentType: "menu_sheet", sortOrder: 1 },
+    { dietTypeCode: "no_soup", documentType: "menu_sheet", sortOrder: 1 },
+    { dietTypeCode: "normal", documentType: "nutrition_report", sortOrder: 2 },
+    { dietTypeCode: "normal", documentType: "plating_instruction", sortOrder: 3 },
   ];
   for (const rule of documentOutputRules) {
     await prisma.documentOutputRule.upsert({
-      where: { mealTypeCode_documentType: { mealTypeCode: rule.mealTypeCode, documentType: rule.documentType } },
+      where: {
+        dietTypeCode_documentType_validFrom: {
+          dietTypeCode: rule.dietTypeCode,
+          documentType: rule.documentType,
+          validFrom: new Date("2020-01-01"),
+        },
+      },
       update: rule,
-      create: rule,
+      create: { ...rule, validFrom: new Date("2020-01-01") },
     });
   }
 

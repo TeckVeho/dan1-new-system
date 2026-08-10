@@ -18,4 +18,6 @@ export const platingInstructionSchema = z.object({
   serviceDate: z.string(),
   menuTemplateId: z.string().optional(),
   body: z.string().min(1),
+  saveAsTemplate: z.boolean().optional(),
+  templateTitle: z.string().optional(),
 });

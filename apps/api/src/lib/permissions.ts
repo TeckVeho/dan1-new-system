@@ -18,9 +18,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     "order.delete",
     "order.export",
     "order_alert.read",
+    "order_alert.update",
     "master.read",
     "master.customer.update",
     "master.deadline.update",
+    "master.long_holiday.update",
     "master.swallow_category.update",
     "master.production_pattern.update",
     "master.allergen.update",
@@ -68,6 +70,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     "order.update",
     "order.export",
     "order_alert.read",
+    "order_alert.update",
     "master.read",
     "master.setout_direction.update",
     "master.reference_rule.update",
@@ -87,7 +90,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
     "shipping.generate",
     "invoice.read",
     "sales_price.read",
-    "admin.user.read",
     "admin.job.cancel",
     "admin.settings.read",
     "admin.settings.update",
@@ -114,9 +116,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, PermissionCode[]> = {
 };
 
 export function expandPermissions(roleCode: string, dbPermissions: string[]): Set<PermissionCode> {
-  const defaults = DEFAULT_ROLE_PERMISSIONS[roleCode] ?? [];
-  const merged = new Set<PermissionCode>([...defaults, ...dbPermissions]);
-  return merged;
+  if (roleCode === "system_admin") return new Set<PermissionCode>(["*"]);
+  if (dbPermissions.length > 0) return new Set<PermissionCode>(dbPermissions);
+  return new Set<PermissionCode>(DEFAULT_ROLE_PERMISSIONS[roleCode] ?? []);
 }
 
 export function hasPermission(granted: Set<PermissionCode>, required: PermissionCode): boolean {

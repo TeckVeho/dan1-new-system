@@ -4,24 +4,23 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  Bell,
   BookOpenText,
   CalendarClock,
   ClipboardList,
   Database,
   FileText,
-  History,
   LayoutDashboard,
-  ListChecks,
   LogOut,
   ScrollText,
   Settings,
   ShieldCheck,
-  Users,
   UtensilsCrossed,
-  Wheat,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { isAdminRole } from "@/components/auth/AdminOnly";
 import { BrandLogo } from "@/components/ui/brand-logo";
 
 const APP_VERSION = "v0.1.0";
@@ -33,13 +32,13 @@ const internalNav: NavSection[] = [
   { items: [{ href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard }] },
   {
     heading: "受注",
+    items: [{ href: "/orders", label: "注文", icon: ClipboardList }],
+  },
+  {
+    heading: "情報",
     items: [
-      { href: "/orders/weekly", label: "週間注文", icon: ClipboardList },
-      { href: "/orders/rice", label: "合数指定", icon: Wheat },
-      { href: "/orders/allergen/new", label: "アレルギー注文", icon: AlertTriangle },
-      { href: "/orders/changes", label: "注文変更", icon: ListChecks },
-      { href: "/orders/history", label: "注文履歴", icon: History },
-      { href: "/orders/alerts", label: "未入力アラート", icon: AlertTriangle },
+      { href: "/announcements", label: "お知らせ", icon: Bell },
+      { href: "/manual", label: "操作マニュアル", icon: BookOpenText },
     ],
   },
   {
@@ -63,6 +62,9 @@ const internalNav: NavSection[] = [
   {
     heading: "管理",
     items: [
+      { href: "/dashboard/alerts", label: "未入力アラート", icon: AlertTriangle },
+      { href: "/admin/users", label: "ユーザー管理", icon: Users },
+      { href: "/admin/roles", label: "ロール設定", icon: ShieldCheck },
       { href: "/audit-logs", label: "監査ログ", icon: ScrollText },
       { href: "/settings", label: "設定", icon: Settings },
     ],
@@ -73,12 +75,13 @@ const facilityNav: NavSection[] = [
   { items: [{ href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard }] },
   {
     heading: "注文",
+    items: [{ href: "/orders", label: "注文", icon: ClipboardList }],
+  },
+  {
+    heading: "情報",
     items: [
-      { href: "/orders/weekly", label: "週間注文", icon: ClipboardList },
-      { href: "/orders/rice", label: "合数指定", icon: Wheat },
-      { href: "/orders/allergen/new", label: "アレルギー注文", icon: AlertTriangle },
-      { href: "/orders/changes", label: "注文変更", icon: ListChecks },
-      { href: "/orders/history", label: "注文履歴", icon: History },
+      { href: "/announcements", label: "お知らせ", icon: Bell },
+      { href: "/manual", label: "操作マニュアル", icon: BookOpenText },
     ],
   },
   {
@@ -97,6 +100,15 @@ export function Sidebar() {
   const { user, logout } = useAuth();
 
   const sections = user.type === "internal" ? internalNav : facilityNav;
+  const showAdminUsers = user.type === "internal" && isAdminRole(user.role);
+
+  const filteredSections =
+    user.type === "internal"
+      ? sections.map((section) => ({
+          ...section,
+          items: section.items.filter((item) => item.href !== "/admin/users" || showAdminUsers),
+        }))
+      : sections;
 
   async function handleLogout() {
     await logout();
@@ -116,7 +128,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-px overflow-y-auto px-2 py-2">
-        {sections.map((section, i) => (
+        {filteredSections.map((section, i) => (
           <div key={section.heading ?? `section-${i}`} className={i > 0 ? "mt-3" : undefined}>
             {section.heading ? (
               <p className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted">

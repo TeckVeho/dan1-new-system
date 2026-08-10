@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, UserRound } from "lucide-react";
@@ -116,7 +117,12 @@ export default function LoginForm() {
           </form>
         </div>
 
-        <p className="mt-5 text-center text-xs text-muted">
+        <p className="mt-5 text-center text-[13px]">
+          <Link href="/password-reset" className="text-primary hover:underline">
+            パスワードをお忘れの方
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-xs text-muted">
           ログインできない場合は管理者にお問い合わせください
         </p>
         <p className="mt-2 text-center text-xs text-muted/70">

@@ -1,8 +1,7 @@
 "use client";
 
-import { SimpleMasterCrudPage } from "@/components/masters/SimpleMasterCrudPage";
-import { SETOUT_DIRECTION_CONFIG } from "@/components/masters/configs";
+import { MenuTemplatesManager } from "@/components/documents/MenuTemplatesManager";
 
 export default function SetoutDirectionsPage() {
-  return <SimpleMasterCrudPage config={SETOUT_DIRECTION_CONFIG} />;
+  return <MenuTemplatesManager />;
 }

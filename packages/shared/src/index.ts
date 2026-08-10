@@ -1,4 +1,5 @@
 export * from "./types.js";
+export * from "./roles.js";
 export * from "./schemas/auth.js";
 export * from "./schemas/master.js";
 export * from "./schemas/order.js";

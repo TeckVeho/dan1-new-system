@@ -1,22 +1,36 @@
 import { getApiBase } from "./auth";
 import type {
   AuditLog,
+  AdminPermission,
+  AdminRole,
   Customer,
   DeadlineException,
   DeadlineRule,
   DocumentItem,
   DocumentDetail,
+  DocumentOutputMatrix,
   DocumentVersion,
+  FacilityAdminUser,
   ImportRecord,
+  InternalAdminUser,
   MenuTemplate,
+  MenuTemplateDuplicateGroup,
+  AnnouncementFeedItem,
+  NewYearOrdersResponse,
+  OrderChangeLogItem,
   OrderListItem,
+  OrderSummaryResponse,
   OrderWindowInfo,
+  OrderWindowsResponse,
   Paginated,
   PlatingInstruction,
   ScheduleCell,
   ScheduleItem,
   ScheduleResponse,
   SwallowCategory,
+  OrderEntryResponse,
+  OrderEntrySaveResult,
+  RiceType,
   WeeklyOrdersResponse,
   RiceOrder,
   AllergenOrder,
@@ -125,6 +139,16 @@ export async function getOrderWindows(params: {
   return body.nextDeadline;
 }
 
+export async function getOrderWindowsFull(params: {
+  orderType: string;
+  from: string;
+  to: string;
+  unitId?: string;
+  customerId?: string;
+}): Promise<OrderWindowsResponse> {
+  return request<OrderWindowsResponse>(`/order-windows${qs(params)}`);
+}
+
 export async function getWeeklyOrders(params: {
   weekStart: string;
   unitId?: string;
@@ -152,14 +176,160 @@ export async function saveWeeklyOrders(payload: {
   });
 }
 
+export async function getOrderEntry(params: {
+  weekStart: string;
+  customerId?: string;
+}): Promise<OrderEntryResponse> {
+  return request<OrderEntryResponse>(`/orders/entry${qs(params)}`);
+}
+
+export async function saveOrderEntry(payload: {
+  customerId?: string;
+  commit: boolean;
+  cells: Array<{
+    rowType: "meal" | "allergen" | "rice";
+    rowKey: string;
+    unitId: string;
+    serviceDate: string;
+    quantity: number;
+    version: number | null;
+    mealTypeId?: string;
+    menuKindId?: string;
+    allergenTypeId?: string;
+    riceType?: string;
+    orderId?: string | null;
+  }>;
+}): Promise<OrderEntrySaveResult> {
+  return request<OrderEntrySaveResult>(`/orders/entry`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function addOrderEntryAllergenRow(payload: {
+  customerId?: string;
+  weekStart: string;
+  unitId: string;
+  allergenTypeId: string;
+}): Promise<OrderEntryResponse> {
+  return request<OrderEntryResponse>(`/orders/entry/allergen-row`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getNewYearOrders(params: {
+  year: number;
+  customerId?: string;
+}): Promise<NewYearOrdersResponse> {
+  return request<NewYearOrdersResponse>(`/orders/new-year${qs(params)}`);
+}
+
+export async function saveNewYearOrders(payload: {
+  year: number;
+  customerId?: string;
+  commit: boolean;
+  cells: {
+    unitId: string;
+    serviceDate: string;
+    mealTypeId: string;
+    menuKindId: string;
+    quantity: number;
+    version: number | null;
+  }[];
+}): Promise<{ saved: number }> {
+  return request<{ saved: number }>(`/orders/new-year`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function getOrders(params: {
   customerId?: string;
+  search?: string;
   serviceDateFrom?: string;
   serviceDateTo?: string;
+  status?: "draft" | "provisional" | "confirmed";
   page?: number;
   perPage?: number;
 }): Promise<Paginated<OrderListItem>> {
   return requestList<OrderListItem>(`/orders${qs(params)}`);
+}
+
+export async function getOrder(id: string): Promise<OrderListItem> {
+  return request<OrderListItem>(`/orders/${id}`);
+}
+
+export async function getOrderSummary(params: {
+  customerId?: string;
+  serviceDateFrom: string;
+  serviceDateTo: string;
+  groupBy: "unit" | "day" | "month";
+}): Promise<OrderSummaryResponse> {
+  return request<OrderSummaryResponse>(`/orders/summary${qs(params)}`);
+}
+
+export async function getOrderChanges(orderId: string): Promise<OrderChangeLogItem[]> {
+  const res = await requestList<OrderChangeLogItem>(`/orders/${orderId}/changes`);
+  return res.items;
+}
+
+export async function exportOrdersCsv(params: {
+  customerId?: string;
+  serviceDateFrom?: string;
+  serviceDateTo?: string;
+  status?: "draft" | "provisional" | "confirmed";
+}): Promise<void> {
+  const res = await fetch(`${V1}/orders/export${qs(params)}`, { credentials: "include", cache: "no-store" });
+  if (!res.ok) throw new ApiError(res.status, "EXPORT_FAILED", "CSVの出力に失敗しました");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `orders-${params.serviceDateFrom ?? "all"}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function getUnenteredFacilities(params: {
+  serviceDateFrom: string;
+  serviceDateTo: string;
+}): Promise<{
+  alerts: UnenteredFacilityAlert[];
+  excluded: {
+    contractEnded: number;
+    orderSuspended: number;
+    longHoliday: number;
+    weekdayNotApplicable: number;
+  };
+}> {
+  const body = await fetchApi(`/orders/unentered-facilities${qs(params)}`);
+  return {
+    alerts: (body.data ?? []) as UnenteredFacilityAlert[],
+    excluded: (body.excluded ?? {
+      contractEnded: 0,
+      orderSuspended: 0,
+      longHoliday: 0,
+      weekdayNotApplicable: 0,
+    }) as {
+      contractEnded: number;
+      orderSuspended: number;
+      longHoliday: number;
+      weekdayNotApplicable: number;
+    },
+  };
+}
+
+export async function getAnnouncementFeed(params?: {
+  page?: number;
+  perPage?: number;
+  category?: string;
+}): Promise<Paginated<AnnouncementFeedItem>> {
+  return requestList<AnnouncementFeedItem>(`/announcements/feed${qs(params ?? {})}`);
+}
+
+export async function markAnnouncementRead(id: string): Promise<void> {
+  await request(`/announcements/${id}/read`, { method: "POST" });
 }
 
 export async function patchOrder(
@@ -168,6 +338,18 @@ export async function patchOrder(
 ): Promise<OrderListItem> {
   return request<OrderListItem>(`/orders/${id}`, {
     method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateOrderAlertStatus(payload: {
+  customerId: string;
+  serviceDate: string;
+  status: string;
+  note?: string;
+}): Promise<void> {
+  await request(`/orders/alerts/status`, {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 }
@@ -232,35 +414,6 @@ export async function updateAllergenOrder(
   return request<AllergenOrder>(`/orders/allergen/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
-export async function getUnenteredFacilities(params: {
-  serviceDateFrom: string;
-  serviceDateTo: string;
-}): Promise<{
-  alerts: UnenteredFacilityAlert[];
-  excluded: {
-    contractEnded: number;
-    orderSuspended: number;
-    longHoliday: number;
-    weekdayNotApplicable: number;
-  };
-}> {
-  const body = await fetchApi(`/orders/unentered-facilities${qs(params)}`);
-  return {
-    alerts: (body.data ?? []) as UnenteredFacilityAlert[],
-    excluded: (body.excluded ?? {
-      contractEnded: 0,
-      orderSuspended: 0,
-      longHoliday: 0,
-      weekdayNotApplicable: 0,
-    }) as {
-      contractEnded: number;
-      orderSuspended: number;
-      longHoliday: number;
-      weekdayNotApplicable: number;
-    },
-  };
-}
-
 // --- マスタ共通 CRUD ---
 
 export type MasterResource =
@@ -279,9 +432,18 @@ export type MasterResource =
   | "business-calendars"
   | "order-suspensions"
   | "document-output-rules"
+  | "diet-types"
   | "customer-groups"
   | "order-types"
-  | "units";
+  | "rice-types"
+  | "long-holidays"
+  | "units"
+  | "announcements";
+
+function crudBasePath(resource: MasterResource): string {
+  if (resource === "announcements") return "/announcements";
+  return `/masters/${resource}`;
+}
 
 export async function getMasterList<T>(
   resource: MasterResource,
@@ -294,7 +456,7 @@ export async function getMasterList<T>(
   } = {},
 ): Promise<Paginated<T>> {
   return requestList<T>(
-    `/masters/${resource}${qs({
+    `${crudBasePath(resource)}${qs({
       page: params.page,
       perPage: params.pageSize,
       q: params.search,
@@ -305,7 +467,7 @@ export async function getMasterList<T>(
 }
 
 export async function createMaster<T>(resource: MasterResource, payload: unknown): Promise<T> {
-  return request<T>(`/masters/${resource}`, { method: "POST", body: JSON.stringify(payload) });
+  return request<T>(`${crudBasePath(resource)}`, { method: "POST", body: JSON.stringify(payload) });
 }
 
 export async function updateMaster<T>(
@@ -313,25 +475,25 @@ export async function updateMaster<T>(
   id: string,
   payload: unknown,
 ): Promise<T> {
-  return request<T>(`/masters/${resource}/${id}`, {
+  return request<T>(`${crudBasePath(resource)}/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 }
 
 export async function deleteMaster(resource: MasterResource, id: string): Promise<void> {
-  await request<void>(`/masters/${resource}/${id}`, { method: "DELETE" });
+  await request<void>(`${crudBasePath(resource)}/${id}`, { method: "DELETE" });
 }
 
 export async function restoreMaster<T>(resource: MasterResource, id: string): Promise<T> {
-  return request<T>(`/masters/${resource}/${id}/restore`, { method: "POST" });
+  return request<T>(`${crudBasePath(resource)}/${id}/restore`, { method: "POST" });
 }
 
 export async function updateMasterSortOrder(
   resource: MasterResource,
   items: Array<{ id: string; sortOrder: number }>,
 ): Promise<{ updated: number }> {
-  return request<{ updated: number }>(`/masters/${resource}/sort-order`, {
+  return request<{ updated: number }>(`${crudBasePath(resource)}/sort-order`, {
     method: "PATCH",
     body: JSON.stringify({ items }),
   });
@@ -386,7 +548,7 @@ export async function getFileDownloadUrl(fileId: string): Promise<{
 }
 
 export async function getMasterById<T>(resource: MasterResource, id: string): Promise<T> {
-  return request<T>(`/masters/${resource}/${id}`);
+  return request<T>(`${crudBasePath(resource)}/${id}`);
 }
 
 export async function getCustomerAllergens(customerId: string) {
@@ -406,8 +568,62 @@ export async function removeCustomerAllergen(customerId: string, allergenTypeId:
   await request<void>(`/masters/customers/${customerId}/allergens/${allergenTypeId}`, { method: "DELETE" });
 }
 
+export type CustomerSettingRecord = {
+  id: string;
+  customerId: string;
+  validFrom: string;
+  validTo?: string | null;
+  settings: Record<string, unknown>;
+};
+
+export async function getCustomerSettings(customerId: string, asOf?: string): Promise<CustomerSettingRecord | null> {
+  return request<CustomerSettingRecord | null>(
+    `/masters/customers/${customerId}/settings${qs({ asOf })}`,
+  );
+}
+
+export async function updateCustomerSettings(
+  customerId: string,
+  payload: { validFrom: string; settings: Record<string, unknown>; reason?: string },
+): Promise<CustomerSettingRecord> {
+  return request<CustomerSettingRecord>(`/masters/customers/${customerId}/settings`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export type CustomerProductionPattern = {
+  id: string;
+  customerId: string;
+  productionPatternId: string;
+  validFrom: string;
+  validTo?: string | null;
+  productionPattern: { id: string; code: string; name: string };
+};
+
+export async function getCustomerProductionPatterns(customerId: string): Promise<CustomerProductionPattern[]> {
+  return request<CustomerProductionPattern[]>(`/masters/customers/${customerId}/production-patterns`);
+}
+
+export async function addCustomerProductionPattern(
+  customerId: string,
+  payload: { productionPatternId: string; validFrom: string; validTo?: string },
+): Promise<CustomerProductionPattern> {
+  return request<CustomerProductionPattern>(`/masters/customers/${customerId}/production-patterns`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function removeCustomerProductionPattern(customerId: string, id: string): Promise<void> {
+  await request<void>(`/masters/customers/${customerId}/production-patterns/${id}`, { method: "DELETE" });
+}
+
 export const getSwallowCategories = (params?: { page?: number; pageSize?: number; search?: string }) =>
   getMasterList<SwallowCategory>("swallow-categories", params);
+
+export const getRiceTypes = (params?: { page?: number; pageSize?: number; search?: string }) =>
+  getMasterList<RiceType>("rice-types", params);
 
 export const getCustomers = (params?: { page?: number; pageSize?: number; search?: string }) =>
   getMasterList<Customer>("customers", params);
@@ -449,7 +665,7 @@ function normalizeDocumentItem(raw: RawDocumentRow): DocumentItem {
     serviceMonth: raw.serviceMonth,
     latestVersion: latest?.versionNo ?? 0,
     generatedAt: latest?.generatedAt ?? null,
-    publishStatus: hasVersion && raw.isActive !== false ? "published" : "unpublished",
+    publishStatus: hasVersion && raw.isActive === true ? "published" : "unpublished",
     latestFileId: latest ? String(latest.fileId) : null,
   };
 }
@@ -575,6 +791,45 @@ export async function downloadFile(fileId: string): Promise<void> {
   window.open(`${getApiBase()}${downloadUrl}`, "_blank", "noopener,noreferrer");
 }
 
+export async function setDocumentPublished(documentId: string, published: boolean): Promise<void> {
+  await request(`/documents/${documentId}/publish`, {
+    method: "POST",
+    body: JSON.stringify({ published }),
+  });
+}
+
+export async function getDocumentOutputMatrix(): Promise<DocumentOutputMatrix> {
+  return request<DocumentOutputMatrix>("/documents/output-rules/matrix");
+}
+
+export async function previewDocumentOutputRules(
+  customerId: string,
+  asOf?: string,
+): Promise<{ dietTypeCode: string; documentTypes: string[]; source: "rule" | "override" }> {
+  return request("/documents/output-rules/preview", {
+    method: "POST",
+    body: JSON.stringify({ customerId, asOf }),
+  });
+}
+
+export async function getMenuTemplateDuplicates(): Promise<MenuTemplateDuplicateGroup[]> {
+  return request<MenuTemplateDuplicateGroup[]>("/documents/templates/duplicates");
+}
+
+export async function bulkArchiveMenuTemplates(payload: {
+  ids?: string[];
+  unusedSinceDays?: number;
+}): Promise<{ archived: number }> {
+  return request("/documents/templates/bulk-archive", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function mergeMenuTemplates(payload: {
+  keepId: string;
+  mergeIds: string[];
+}): Promise<{ keepId: string; merged: number }> {
+  return request("/documents/templates/merge", { method: "POST", body: JSON.stringify(payload) });
+}
+
 export const getMenuTemplates = async (params?: {
   page?: number;
   pageSize?: number;
@@ -586,6 +841,7 @@ export const getMenuTemplates = async (params?: {
     body: string;
     tags?: string[] | null;
     useCount: number;
+    lastUsedAt?: string | null;
     isActive: boolean;
     deletedAt?: string | null;
   }>("setout-directions", params);
@@ -598,7 +854,7 @@ export const getMenuTemplates = async (params?: {
       body: row.body,
       tags: row.tags ?? [],
       usageCount: row.useCount,
-      lastUsedAt: null,
+      lastUsedAt: row.lastUsedAt ?? null,
       status: row.deletedAt || !row.isActive ? "archived" : "active",
     })),
   };
@@ -642,6 +898,8 @@ export async function createPlatingInstruction(payload: {
   serviceDate: string;
   menuTemplateId?: string;
   body: string;
+  saveAsTemplate?: boolean;
+  templateTitle?: string;
 }): Promise<PlatingInstruction> {
   const created = await request<{
     id: string | number;
@@ -834,5 +1092,106 @@ export async function changePassword(payload: {
   await request<void>(`/auth/password/change`, {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function requestPasswordReset(loginId: string): Promise<string> {
+  const body = await request<{ message: string }>(`/auth/password-reset/request`, {
+    method: "POST",
+    body: JSON.stringify({ loginId }),
+  });
+  return body.message;
+}
+
+export async function confirmPasswordReset(payload: {
+  token: string;
+  newPassword: string;
+}): Promise<string> {
+  const body = await request<{ message: string }>(`/auth/password-reset/confirm`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return body.message;
+}
+
+export async function getAdminUsers(params: {
+  type?: "internal" | "facility";
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<Paginated<InternalAdminUser | FacilityAdminUser>> {
+  return request<Paginated<InternalAdminUser | FacilityAdminUser>>(
+    `/admin/users${qs(params)}`,
+  );
+}
+
+export async function createInternalUser(payload: {
+  employeeNo: string;
+  haccpNo?: string;
+  name: string;
+  email?: string;
+  roleId: string;
+  password?: string;
+}): Promise<{ user: InternalAdminUser; temporaryPassword?: string }> {
+  return request(`/admin/users/internal`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateInternalUser(
+  id: string,
+  payload: Partial<{
+    employeeNo: string;
+    haccpNo: string | null;
+    name: string;
+    email: string | null;
+    roleId: string;
+    isActive: boolean;
+  }>,
+): Promise<InternalAdminUser> {
+  return request(`/admin/users/internal/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function createFacilityUser(payload: {
+  customerId: string;
+  loginId: string;
+  name: string;
+  roleId: string;
+  password?: string;
+}): Promise<{ user: FacilityAdminUser; temporaryPassword?: string }> {
+  return request(`/admin/users/facility`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateFacilityUser(
+  id: string,
+  payload: Partial<{ loginId: string; name: string; roleId: string; isActive: boolean }>,
+): Promise<FacilityAdminUser> {
+  return request(`/admin/users/facility/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function resetAdminUserPassword(
+  type: "internal" | "facility",
+  id: string,
+): Promise<{ temporaryPassword?: string }> {
+  return request(`/admin/users/${type}/${id}/reset-password`, { method: "POST", body: "{}" });
+}
+
+export async function deleteAdminUser(type: "internal" | "facility", id: string): Promise<void> {
+  await request(`/admin/users/${type}/${id}`, { method: "DELETE" });
+}
+
+export async function getAdminRoles(): Promise<AdminRole[]> {
+  return request<AdminRole[]>(`/admin/roles`);
+}
+
+export async function getAdminPermissions(): Promise<AdminPermission[]> {
+  return request<AdminPermission[]>(`/admin/permissions`);
+}
+
+export async function updateRolePermissions(
+  roleId: string,
+  permissionCodes: string[],
+): Promise<{ id: string; code: string; name: string; permissionCodes: string[] }> {
+  return request(`/admin/roles/${roleId}/permissions`, {
+    method: "PUT",
+    body: JSON.stringify({ permissionCodes }),
   });
 }

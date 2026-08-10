@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getRoleDisplayName } from "@dan1/shared";
 import { hashPassword, verifyPassword } from "../src/lib/password.js";
 import { expandPermissions, hasPermission } from "../src/lib/permissions.js";
 import { hashToken } from "../src/services/auth.service.js";
@@ -50,6 +51,19 @@ describe("session token hashing", () => {
   });
 });
 
+describe("role display names", () => {
+  it("returns Japanese labels for known role codes", () => {
+    expect(getRoleDisplayName("system_admin")).toBe("システム管理者");
+    expect(getRoleDisplayName("internal_staff")).toBe("社内一般");
+    expect(getRoleDisplayName("facility_staff")).toBe("施設一般");
+  });
+
+  it("falls back to the stored name or code for unknown roles", () => {
+    expect(getRoleDisplayName("custom_role", "カスタム")).toBe("カスタム");
+    expect(getRoleDisplayName("custom_role")).toBe("custom_role");
+  });
+});
+
 describe("permission resolution", () => {
   it("grants every permission to system_admin via the wildcard", () => {
     const permissions = expandPermissions("system_admin", []);
@@ -71,9 +85,9 @@ describe("permission resolution", () => {
     expect(hasPermission(permissions, "procurement.schedule.update")).toBe(false);
   });
 
-  it("merges DB-configured role_permissions on top of the bootstrap defaults", () => {
+  it("uses DB-configured role_permissions when populated", () => {
     const permissions = expandPermissions("facility_staff", ["custom.extra_permission"]);
-    expect(hasPermission(permissions, "order.read")).toBe(true);
+    expect(hasPermission(permissions, "order.read")).toBe(false);
     expect(hasPermission(permissions, "custom.extra_permission")).toBe(true);
   });
 

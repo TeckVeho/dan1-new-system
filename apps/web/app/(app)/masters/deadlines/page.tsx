@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { FilterChip } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/layout/DataTable";
-import { createMaster, getDeadlineExceptions, getDeadlineRules } from "@/lib/api";
+import { createMaster, getDeadlineExceptions, getDeadlineRules, getMasterList } from "@/lib/api";
 import type { DeadlineException, DeadlineRule } from "@/lib/types";
 import { MasterBackLink } from "@/components/masters/MasterBackLink";
 
@@ -25,18 +25,36 @@ const SCOPE_LABEL: Record<DeadlineRule["scopeType"], string> = {
 function RuleForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
   const [scopeType, setScopeType] = useState<DeadlineRule["scopeType"]>("global");
+  const [scopeId, setScopeId] = useState("");
   const [dayOffset, setDayOffset] = useState(5);
   const [cutoffTime, setCutoffTime] = useState("17:00");
+  const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
+  const [customers, setCustomers] = useState<Array<{ id: string; name: string; customerCode: string }>>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (scopeType === "group") {
+      getMasterList<{ id: string; name: string }>("customer-groups", { pageSize: 100 }).then((r) => setGroups(r.items));
+    } else if (scopeType === "customer") {
+      getMasterList<{ id: string; name: string; customerCode: string }>("customers", { pageSize: 100 }).then((r) => setCustomers(r.items));
+    }
+  }, [scopeType]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      await createMaster("deadline-rules", { name, scopeType, dayOffset, cutoffTime });
+      await createMaster("deadline-rules", {
+        name,
+        scopeType,
+        scopeId: scopeType === "global" ? null : scopeId || null,
+        dayOffset,
+        cutoffTime,
+      });
       setName("");
+      setScopeId("");
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");
@@ -60,12 +78,31 @@ function RuleForm({ onCreated }: { onCreated: () => void }) {
         <Select
           label="適用範囲"
           value={scopeType}
-          onChange={(e) => setScopeType(e.target.value as DeadlineRule["scopeType"])}
+          onChange={(e) => {
+            setScopeType(e.target.value as DeadlineRule["scopeType"]);
+            setScopeId("");
+          }}
         >
           <option value="global">全体</option>
           <option value="group">施設グループ</option>
           <option value="customer">施設別</option>
         </Select>
+        {scopeType === "group" ? (
+          <Select label="施設グループ" value={scopeId} onChange={(e) => setScopeId(e.target.value)} required>
+            <option value="">選択してください</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </Select>
+        ) : null}
+        {scopeType === "customer" ? (
+          <Select label="施設" value={scopeId} onChange={(e) => setScopeId(e.target.value)} required>
+            <option value="">選択してください</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>{c.customerCode} {c.name}</option>
+            ))}
+          </Select>
+        ) : null}
         <Input
           label="締切（喫食日の何日前か）"
           type="number"

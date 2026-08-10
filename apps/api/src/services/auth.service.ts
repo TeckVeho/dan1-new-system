@@ -1,14 +1,15 @@
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@dan1/database";
-import { verifyPassword } from "../lib/password.js";
-import { UnauthenticatedError, ForbiddenError, BusinessRuleViolationError } from "../lib/errors.js";
+import { hashPassword, verifyPassword } from "../lib/password.js";
+import { validatePassword } from "../lib/password-policy.js";
+import { UnauthenticatedError, ForbiddenError, BusinessRuleViolationError, NotFoundError } from "../lib/errors.js";
 import { expandPermissions } from "../lib/permissions.js";
+import { getRoleDisplayName } from "@dan1/shared";
 import type { RequestContext } from "../types/context.js";
 
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_DURATION_MS = 15 * 60 * 1000;
 const INTERNAL_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const FACILITY_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
 export type LoginInput = {
   loginId: string;
@@ -26,17 +27,13 @@ export type LoginResult = {
   context: RequestContext;
 };
 
+export type PasswordChangeInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
-}
-
-function assertNotLocked(lockedUntil: Date | null): void {
-  if (lockedUntil && lockedUntil.getTime() > Date.now()) {
-    const remainingMinutes = Math.ceil((lockedUntil.getTime() - Date.now()) / 60000);
-    throw new BusinessRuleViolationError(
-      `ログインがロックされています。あと約${remainingMinutes}分でロックが解除されます`,
-    );
-  }
 }
 
 async function buildInternalContext(userId: bigint): Promise<RequestContext> {
@@ -103,27 +100,35 @@ async function findInternalUser(loginId: string) {
   });
 }
 
+async function revokeOtherSessions(
+  userId?: bigint,
+  customerUserId?: bigint,
+  exceptSessionId?: bigint,
+): Promise<void> {
+  await prisma.session.deleteMany({
+    where: {
+      ...(userId ? { userId } : {}),
+      ...(customerUserId ? { customerUserId } : {}),
+      ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}),
+    },
+  });
+}
+
 async function authenticateInternalUser(
-  user: { id: bigint; isActive: boolean; lockedUntil: Date | null; passwordHash: string; failedLoginCount: number },
+  user: { id: bigint; isActive: boolean; passwordHash: string },
   password: string,
   meta: SessionMeta,
 ): Promise<LoginResult> {
   if (!user.isActive) throw new UnauthenticatedError("ログインIDまたはパスワードが正しくありません");
 
-  assertNotLocked(user.lockedUntil);
-
   const valid = verifyPassword(password, user.passwordHash);
   if (!valid) {
-    const failedLoginCount = user.failedLoginCount + 1;
-    const lockedUntil =
-      failedLoginCount >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCK_DURATION_MS) : user.lockedUntil;
-    await prisma.user.update({ where: { id: user.id }, data: { failedLoginCount, lockedUntil } });
     throw new UnauthenticatedError("ログインIDまたはパスワードが正しくありません");
   }
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
+    data: { lastLoginAt: new Date() },
   });
 
   const token = randomBytes(32).toString("hex");
@@ -140,13 +145,7 @@ async function authenticateInternalUser(
 }
 
 async function authenticateFacilityUser(
-  customerUser: {
-    id: bigint;
-    isActive: boolean;
-    lockedUntil: Date | null;
-    passwordHash: string;
-    failedLoginCount: number;
-  },
+  customerUser: { id: bigint; isActive: boolean; passwordHash: string },
   password: string,
   meta: SessionMeta,
 ): Promise<LoginResult> {
@@ -154,23 +153,14 @@ async function authenticateFacilityUser(
     throw new UnauthenticatedError("ログインIDまたはパスワードが正しくありません");
   }
 
-  assertNotLocked(customerUser.lockedUntil);
-
   const valid = verifyPassword(password, customerUser.passwordHash);
   if (!valid) {
-    const failedLoginCount = customerUser.failedLoginCount + 1;
-    const lockedUntil =
-      failedLoginCount >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCK_DURATION_MS) : customerUser.lockedUntil;
-    await prisma.customerUser.update({
-      where: { id: customerUser.id },
-      data: { failedLoginCount, lockedUntil },
-    });
     throw new UnauthenticatedError("ログインIDまたはパスワードが正しくありません");
   }
 
   await prisma.customerUser.update({
     where: { id: customerUser.id },
-    data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
+    data: { lastLoginAt: new Date() },
   });
 
   const token = randomBytes(32).toString("hex");
@@ -224,6 +214,92 @@ export async function getSessionContext(token: string): Promise<RequestContext |
   return context;
 }
 
+export async function changePassword(ctx: RequestContext, input: PasswordChangeInput): Promise<void> {
+  if (ctx.userType === "internal" && ctx.userId) {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: ctx.userId } });
+    if (!verifyPassword(input.currentPassword, user.passwordHash)) {
+      throw new UnauthenticatedError("現在のパスワードが正しくありません");
+    }
+    validatePassword(input.newPassword, { loginId: user.employeeNo, name: user.name });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: hashPassword(input.newPassword), passwordChangedAt: new Date() },
+    });
+    await revokeOtherSessions(user.id, undefined, ctx.sessionId);
+    return;
+  }
+
+  if (ctx.userType === "facility" && ctx.customerUserId) {
+    const customerUser = await prisma.customerUser.findUniqueOrThrow({ where: { id: ctx.customerUserId } });
+    if (!verifyPassword(input.currentPassword, customerUser.passwordHash)) {
+      throw new UnauthenticatedError("現在のパスワードが正しくありません");
+    }
+    validatePassword(input.newPassword, { loginId: customerUser.loginId, name: customerUser.name });
+    await prisma.customerUser.update({
+      where: { id: customerUser.id },
+      data: { passwordHash: hashPassword(input.newPassword), passwordChangedAt: new Date() },
+    });
+    await revokeOtherSessions(undefined, customerUser.id, ctx.sessionId);
+    return;
+  }
+
+  throw new ForbiddenError("パスワードを変更できません");
+}
+
+export async function requestPasswordReset(loginId: string): Promise<void> {
+  const internalUser = await findInternalUser(loginId);
+  if (internalUser?.email) {
+    await createPasswordResetToken("internal", internalUser.id, internalUser.email);
+  }
+  // 施設ユーザーはメール未登録のため、管理者によるパスワード再発行で対応
+}
+
+async function createPasswordResetToken(
+  userType: "internal",
+  userId: bigint,
+  email: string,
+): Promise<void> {
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+  await prisma.passwordResetToken.create({
+    data: {
+      userType,
+      userId,
+      tokenHash: hashToken(token),
+      expiresAt,
+    },
+  });
+  console.info(`[password-reset] ${email}: /password-reset/${token}`);
+}
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash: hashToken(token) },
+  });
+  if (!resetToken || resetToken.usedAt || resetToken.expiresAt.getTime() <= Date.now()) {
+    throw new NotFoundError("リセットリンクが無効か、有効期限が切れています");
+  }
+
+  if (resetToken.userType === "internal" && resetToken.userId) {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: resetToken.userId } });
+    validatePassword(newPassword, { loginId: user.employeeNo, name: user.name });
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: hashPassword(newPassword), passwordChangedAt: new Date() },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt: new Date() },
+      }),
+      prisma.session.deleteMany({ where: { userId: user.id } }),
+    ]);
+    return;
+  }
+
+  throw new NotFoundError("リセットリンクが無効です");
+}
+
 export async function startImpersonation(ctx: RequestContext, customerId: bigint) {
   if (ctx.userType !== "internal" || !ctx.userId) {
     throw new ForbiddenError("社内ユーザーのみ成り代わりを開始できます");
@@ -251,4 +327,50 @@ export async function endImpersonation(ctx: RequestContext) {
   });
   if (!log) return null;
   return prisma.impersonationLog.update({ where: { id: log.id }, data: { endedAt: new Date() } });
+}
+
+export async function getAuthUserProfile(ctx: RequestContext) {
+  if (ctx.userType === "internal" && ctx.userId) {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: ctx.userId },
+      include: { role: true },
+    });
+    let customerName: string | undefined;
+    if (ctx.impersonatingCustomerId) {
+      const customer = await prisma.customer.findUnique({ where: { id: ctx.impersonatingCustomerId } });
+      customerName = customer?.name;
+    }
+    return {
+      id: user.id.toString(),
+      name: user.name,
+      type: "internal" as const,
+      role: user.role.code,
+      roleName: getRoleDisplayName(user.role.code, user.role.name),
+      employeeCode: user.employeeNo,
+      haccpNo: user.haccpNo ?? undefined,
+      customerId: ctx.impersonatingCustomerId?.toString(),
+      customerName,
+      impersonating: Boolean(ctx.impersonatingCustomerId),
+      passwordChangeRequired: !user.passwordChangedAt,
+    };
+  }
+
+  if (ctx.userType === "facility" && ctx.customerUserId) {
+    const customerUser = await prisma.customerUser.findUniqueOrThrow({
+      where: { id: ctx.customerUserId },
+      include: { role: true, customer: true },
+    });
+    return {
+      id: customerUser.id.toString(),
+      name: customerUser.name,
+      type: "facility" as const,
+      role: customerUser.role.code,
+      roleName: getRoleDisplayName(customerUser.role.code, customerUser.role.name),
+      customerId: customerUser.customerId.toString(),
+      customerName: customerUser.customer.name,
+      passwordChangeRequired: !customerUser.passwordChangedAt,
+    };
+  }
+
+  throw new ForbiddenError("ユーザー情報を取得できません");
 }

@@ -16,6 +16,7 @@ import {
   downloadFile,
   getDocumentById,
   getDocumentVersions,
+  setDocumentPublished,
   uploadFile,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
@@ -27,6 +28,7 @@ export default function DocumentDetailPage() {
   const [document, setDocument] = useState<Awaited<ReturnType<typeof getDocumentById>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -47,6 +49,22 @@ export default function DocumentDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function handlePublish(published: boolean) {
+    if (!document) return;
+    setPublishing(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await setDocumentPublished(document.id, published);
+      setMessage(published ? "施設へ公開しました" : "非公開にしました");
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "公開状態の変更に失敗しました");
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   async function handleUpload(file: File) {
     if (!document) return;
@@ -141,13 +159,29 @@ export default function DocumentDetailPage() {
         </div>
         <div>
           <span className="text-muted">公開状態</span>
-          <p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
             {document.publishStatus === "published" ? (
               <Badge variant="success">公開</Badge>
             ) : (
               <Badge variant="muted">非公開</Badge>
             )}
-          </p>
+            {user.type === "internal" ? (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  loading={publishing}
+                  disabled={!document.latestVersion}
+                  onClick={() => handlePublish(document.publishStatus !== "published")}
+                >
+                  {document.publishStatus === "published" ? "非公開にする" : "施設へ公開する"}
+                </Button>
+                {!document.latestVersion ? (
+                  <span className="text-[12px] text-muted">版登録後に公開できます</span>
+                ) : null}
+              </>
+            ) : null}
+          </div>
         </div>
         <div>
           <span className="text-muted">最終生成</span>

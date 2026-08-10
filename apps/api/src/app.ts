@@ -18,6 +18,7 @@ import { announcementsRouter } from "./routes/announcements.routes.js";
 import { orderWindowsRouter } from "./routes/order-windows.routes.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import { filesRouter } from "./routes/files.routes.js";
+import { schedulerRouter } from "./routes/scheduler.routes.js";
 
 export function createApp() {
   const app = express();
@@ -43,6 +44,7 @@ export function createApp() {
   app.use("/api/v1/announcements", announcementsRouter);
   app.use("/api/v1/admin", adminRouter);
   app.use("/api/v1/files", filesRouter);
+  app.use("/api/v1/internal/scheduler", schedulerRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

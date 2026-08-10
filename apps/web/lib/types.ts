@@ -22,10 +22,13 @@ export type AuthUser = {
   name: string;
   type: UserType;
   role: string;
+  roleName: string;
   employeeCode?: string;
+  haccpNo?: string;
   customerId?: string;
   customerName?: string;
   impersonating?: boolean;
+  passwordChangeRequired?: boolean;
 };
 
 // --- 注文 ---
@@ -37,6 +40,23 @@ export type OrderWindowInfo = {
   remainingSeconds: number;
   isException: boolean;
   source: string;
+};
+
+export type OrderWindowsResponse = {
+  orderType: string;
+  nextDeadline: OrderWindowInfo;
+  windows: Array<{
+    serviceDate: string;
+    deadlineAt: string | null;
+    editable: boolean;
+    isException: boolean;
+    exceptionReason?: string;
+  }>;
+  changeWindow?: {
+    serviceDateFrom: string;
+    serviceDateTo: string;
+    message: string;
+  };
 };
 
 export type WeeklyOrderDate = {
@@ -71,8 +91,68 @@ export type WeeklyOrdersResponse = {
   rows: WeeklyOrderRow[];
 };
 
+export type OrderGridRowType = "meal" | "allergen" | "rice";
+
+export type OrderEntryRow = {
+  rowType: OrderGridRowType;
+  rowKey: string;
+  unitId: string;
+  unitName: string;
+  unitSortOrder: number;
+  mealTypeId?: string;
+  mealTypeName?: string;
+  mealTypeSortOrder?: number;
+  menuKindId?: string;
+  menuKindName?: string;
+  menuKindSortOrder?: number;
+  swallowCategory?: { id: string; code: string; name: string; sortOrder: number } | null;
+  allergenTypeId?: string;
+  allergenTypeCode?: string;
+  allergenTypeName?: string;
+  riceType?: string;
+  riceTypeName?: string;
+  cells: WeeklyOrderCell[];
+};
+
+export type OrderEntryResponse = {
+  weekStart: string;
+  dates: WeeklyOrderDate[];
+  rows: OrderEntryRow[];
+  riceTypes: Array<{ code: string; name: string; sortOrder: number }>;
+  allergenOptions: Array<{ id: string; code: string; name: string }>;
+  windowInfo: { deadlineAt: string; remainingSeconds: number } | null;
+};
+
+export type OrderEntrySaveFailure = {
+  rowType: OrderGridRowType;
+  key: string;
+  code: string;
+  message: string;
+};
+
+export type OrderEntrySaveResult = {
+  saved: number;
+  failed: OrderEntrySaveFailure[];
+  mealTotal: number;
+  allergenTotal: number;
+  riceTotal: number;
+};
+
+export type RiceType = {
+  id: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type OrderWorkspaceTab = "entry" | "content" | "calendar";
+
 export type OrderListItem = {
   id: string;
+  customerId?: string;
+  customerCode?: string;
+  customerName?: string;
   unitName: string;
   serviceDate: string;
   mealTypeName: string;
@@ -81,6 +161,27 @@ export type OrderListItem = {
   changedQuantity: number | null;
   reason: string | null;
   version: number;
+  status?: "draft" | "provisional" | "confirmed" | "cancelled";
+};
+
+export type OrderChangeLogItem = {
+  id: string;
+  mealOrderId: string;
+  fieldName: string;
+  beforeValue: string | null;
+  afterValue: string | null;
+  reason: string | null;
+  changedByType: string | null;
+  changedAt: string;
+};
+
+export type OrderSummaryResponse = {
+  groupBy: "unit" | "day" | "month";
+  rows: Array<
+    | { unitId: string; unitName: string; total: number }
+    | { date: string; total: number }
+    | { month: string; total: number }
+  >;
 };
 
 export type RiceOrder = {
@@ -112,6 +213,7 @@ export type UnenteredFacilityAlert = {
   missingTypes: string[];
   previousOrderSummary: { lastServiceDate: string; totalQuantity: number } | null;
   alertStatus: string;
+  deadlineAt: string | null;
 };
 
 export type Unit = {
@@ -119,6 +221,27 @@ export type Unit = {
   name: string;
   customerId: string;
   isActive: boolean;
+};
+
+export type AnnouncementFeedItem = {
+  id: string;
+  title: string;
+  body: string;
+  category: string;
+  severity: string;
+  isPinned: boolean;
+  publishFrom: string;
+  publishTo: string | null;
+  isRead: boolean;
+};
+
+export type NewYearOrdersResponse = {
+  year: number;
+  weekStart: string;
+  accepting: boolean;
+  nextDeadline: OrderWindowInfo | null;
+  changeWindow?: { serviceDateFrom: string; serviceDateTo: string; message: string };
+  grid: WeeklyOrdersResponse;
 };
 
 // --- マスタ ---
@@ -137,9 +260,17 @@ export type Customer = {
   name: string;
   nameKana?: string;
   shortName?: string;
+  customerGroupId?: string | null;
+  postalCode?: string;
+  prefecture?: string;
+  address?: string;
+  phone?: string;
+  fax?: string;
+  contactName?: string;
   contractStartDate: string;
   contractEndDate?: string | null;
   isInternalTest: boolean;
+  isActive?: boolean;
 };
 
 export type DeadlineRule = {
@@ -198,6 +329,29 @@ export type MenuTemplate = {
   status: "active" | "archived";
 };
 
+export type MenuTemplateDuplicateGroup = {
+  normalizedBody: string;
+  templates: Array<{
+    id: string;
+    title: string;
+    body: string;
+    usageCount: number;
+    lastUsedAt: string | null;
+  }>;
+};
+
+export type DocumentOutputMatrix = {
+  dietTypes: Array<{ code: string; name: string }>;
+  documentTypes: string[];
+  rules: Array<{
+    id: string;
+    dietTypeCode: string;
+    documentType: string;
+    isEnabled: boolean;
+    sortOrder: number;
+  }>;
+};
+
 export type PlatingInstruction = {
   id: string;
   serviceDate: string;
@@ -250,7 +404,42 @@ export type ImportRecord = {
   errorCount: number;
 };
 
-// --- 管理 ---
+export type AdminRole = {
+  id: string;
+  code: string;
+  name: string;
+  scope: string;
+  userCount: number;
+  permissionCodes: string[];
+};
+
+export type AdminPermission = {
+  code: string;
+  name: string;
+  category: string;
+};
+
+export type InternalAdminUser = {
+  id: string;
+  type: "internal";
+  employeeNo: string;
+  haccpNo: string | null;
+  name: string;
+  email: string | null;
+  isActive: boolean;
+  role: { id: string; code: string; name: string };
+  supplierIds: string[];
+};
+
+export type FacilityAdminUser = {
+  id: string;
+  type: "facility";
+  loginId: string;
+  name: string;
+  isActive: boolean;
+  customer: { id: string; customerCode: string; name: string };
+  role: { id: string; code: string; name: string };
+};
 
 export type AuditLog = {
   id: string;

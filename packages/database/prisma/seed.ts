@@ -2,11 +2,13 @@ import "./load-env.js";
 import { PrismaClient } from "@prisma/client";
 import { seedDemoData } from "./seed/demo.js";
 import { seedMasters } from "./seed/masters.js";
+import { seedPermissions } from "./seed/permissions.js";
 
 const prisma = new PrismaClient();
 
 async function main() {
   const refs = await seedMasters(prisma);
+  await seedPermissions(prisma);
   const demo = await seedDemoData(prisma, refs);
 
   console.log("Seed completed:", {

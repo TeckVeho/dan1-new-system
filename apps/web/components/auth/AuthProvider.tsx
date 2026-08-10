@@ -13,10 +13,14 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/**
- * 認証済みであることを確認し、ユーザー情報をコンテキストで配布する。
- * 未認証の場合は /login にリダイレクトする（misaki-reports の AuthGuard 相当）。
- */
+const PASSWORD_CHANGE_ALLOWED = ["/settings", "/login", "/password-reset"];
+
+function isPasswordChangeAllowed(pathname: string): boolean {
+  return PASSWORD_CHANGE_ALLOWED.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -46,9 +50,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-    // 初回マウント時のみチェックする。ページ遷移ごとの再チェックは行わない。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!user?.passwordChangeRequired) return;
+    if (isPasswordChangeAllowed(pathname)) return;
+    router.replace("/settings?required=1");
+  }, [user, pathname, router]);
 
   async function handleLogout() {
     await logoutRequest();

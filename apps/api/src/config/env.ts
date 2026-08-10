@@ -4,6 +4,7 @@ export const env = {
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
   sessionCookieName: process.env.SESSION_COOKIE_NAME ?? "dan1_session",
   jobRunner: process.env.JOB_RUNNER ?? "inline",
+  schedulerToken: process.env.SCHEDULER_TOKEN ?? "",
 };
 
 export const isProduction = env.nodeEnv === "production";

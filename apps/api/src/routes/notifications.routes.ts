@@ -20,8 +20,11 @@ const listQuerySchema = z.object({
 notificationsRouter.get("/", async (req, res, next) => {
   try {
     const query = listQuerySchema.parse(req.query);
+    const ctx = req.context!;
     const where = {
-      userId: req.context!.userId ?? undefined,
+      ...(ctx.userType === "internal"
+        ? { userId: ctx.userId ?? undefined }
+        : { customerUserId: ctx.customerUserId ?? undefined }),
       ...(query.isRead !== undefined ? { isRead: query.isRead } : {}),
       ...(query.category ? { category: query.category } : {}),
     };
@@ -54,8 +57,14 @@ notificationsRouter.patch("/:id/read", async (req, res, next) => {
 
 notificationsRouter.post("/read-all", async (req, res, next) => {
   try {
+    const ctx = req.context!;
     await prisma.notification.updateMany({
-      where: { userId: req.context!.userId ?? undefined, isRead: false },
+      where: {
+        ...(ctx.userType === "internal"
+          ? { userId: ctx.userId ?? undefined }
+          : { customerUserId: ctx.customerUserId ?? undefined }),
+        isRead: false,
+      },
       data: { isRead: true },
     });
     sendData(res, { updated: true });

@@ -19,9 +19,17 @@ export const customerSchema = z.object({
   name: z.string().min(1).max(200),
   nameKana: z.string().optional(),
   shortName: z.string().optional(),
+  customerGroupId: z.string().optional(),
+  postalCode: z.string().max(8).optional(),
+  prefecture: z.string().max(10).optional(),
+  address: z.string().max(255).optional(),
+  phone: z.string().max(20).optional(),
+  fax: z.string().max(20).optional(),
+  contactName: z.string().max(100).optional(),
   contractStartDate: z.string(),
   contractEndDate: z.string().optional(),
   isInternalTest: z.boolean().default(false),
+  isActive: z.boolean().default(true),
 });
 
 export const customerSettingSchema = z.object({
@@ -31,6 +39,13 @@ export const customerSettingSchema = z.object({
 });
 
 export const mealTypeSchema = z.object({
+  code: z.string().min(1).max(20),
+  name: z.string().min(1).max(50),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const riceTypeSchema = z.object({
   code: z.string().min(1).max(20),
   name: z.string().min(1).max(50),
   sortOrder: z.number().int().min(0).default(0),
@@ -74,6 +89,14 @@ export const productionPatternSchema = z.object({
   code: z.string().min(1).max(20),
   name: z.string().min(1).max(100),
   leadDays: z.number().int().min(0),
+  pickupOffsetD0: z.number().int().min(0).default(0),
+  pickupOffsetD1: z.number().int().min(0).default(1),
+  pickupOffsetD2: z.number().int().min(0).default(2),
+  pickupOffsetD3: z.number().int().min(0).default(3),
+  arrivalOffsetD1: z.number().int().min(0).default(1),
+  arrivalOffsetD2: z.number().int().min(0).default(2),
+  arrivalOffsetD3: z.number().int().min(0).default(3),
+  carrierCode: z.string().max(20).optional(),
   sortOrder: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
 });
@@ -82,9 +105,13 @@ export const announcementSchema = z.object({
   title: z.string().min(1).max(200),
   body: z.string().min(1),
   category: z.string().min(1).max(50),
+  severity: z.enum(["info", "important"]).default("info"),
+  isPinned: z.boolean().default(false),
   publishFrom: z.string(),
   publishTo: z.string().optional(),
   audience: z.enum(["all", "internal", "facility"]).default("all"),
+  targetScopeType: z.enum(["all", "customer", "customer_group"]).default("all"),
+  targetScopeId: z.string().optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -123,6 +150,8 @@ export const fileUploadUrlRequestSchema = z.object({
 export const orderTypeSchema = z.object({
   code: z.string().min(1).max(20),
   name: z.string().min(1).max(50),
+  linksToProductionReports: z.boolean().default(true),
+  linksToSales: z.boolean().default(true),
   sortOrder: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
 });
@@ -155,14 +184,59 @@ export const orderSuspensionSchema = z.object({
 });
 
 export const documentOutputRuleSchema = z.object({
-  mealTypeCode: z.string().min(1).max(20),
+  dietTypeCode: z.string().min(1).max(20),
   documentType: z.string().min(1).max(50),
   isEnabled: z.boolean().default(true),
   sortOrder: z.number().int().min(0).default(0),
+  validFrom: z.string().optional(),
+  validTo: z.string().optional(),
+});
+
+export const dietTypeSchema = z.object({
+  code: z.string().min(1).max(20),
+  name: z.string().min(1).max(50),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const documentOutputPreviewSchema = z.object({
+  customerId: z.string().min(1),
+  asOf: z.string().optional(),
+});
+
+export const menuTemplateBulkArchiveSchema = z.object({
+  ids: z.array(z.string().min(1)).optional(),
+  unusedSinceDays: z.number().int().min(1).optional(),
+});
+
+export const menuTemplateMergeSchema = z.object({
+  keepId: z.string().min(1),
+  mergeIds: z.array(z.string().min(1)).min(1),
 });
 
 export const customerAllergenSchema = z.object({
   allergenTypeId: z.string().min(1),
+});
+
+export const longHolidaySchema = z.object({
+  customerId: z.string().optional(),
+  name: z.string().max(100).optional(),
+  startDate: z.string(),
+  endDate: z.string(),
+  reason: z.string().max(255).optional(),
+});
+
+export const customerProductionPatternSchema = z.object({
+  productionPatternId: z.string().min(1),
+  validFrom: z.string(),
+  validTo: z.string().optional(),
+});
+
+export const documentOutputOverridesSchema = z.record(z.boolean());
+
+export const customerSettingsPayloadSchema = z.object({
+  dietTypeCode: z.string().optional(),
+  documentOutputOverrides: documentOutputOverridesSchema.optional(),
 });
 
 export const fileRegisterSchema = z.object({

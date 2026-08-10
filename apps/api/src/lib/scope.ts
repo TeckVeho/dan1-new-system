@@ -46,6 +46,33 @@ export function resolveScopedCustomerId(ctx: RequestContext, requestedCustomerId
   return requested;
 }
 
+/** Internal users without impersonation may omit customerId to query across all facilities. */
+export function resolveOptionalScopedCustomerId(
+  ctx: RequestContext,
+  requestedCustomerId?: string | bigint | null,
+): bigint | undefined {
+  const requested =
+    requestedCustomerId !== undefined && requestedCustomerId !== null
+      ? BigInt(requestedCustomerId)
+      : undefined;
+
+  if (ctx.userType === "facility") {
+    if (requested !== undefined && requested !== ctx.customerId) {
+      throw new ScopeViolationError();
+    }
+    return ctx.customerId!;
+  }
+
+  if (ctx.impersonatingCustomerId) {
+    if (requested !== undefined && requested !== ctx.impersonatingCustomerId) {
+      throw new ScopeViolationError();
+    }
+    return ctx.impersonatingCustomerId;
+  }
+
+  return requested;
+}
+
 export function supplierScopeGuard(ctx: RequestContext, supplierId: bigint): void {
   if (ctx.userType !== "internal") return;
   if (!ctx.supplierScopeIds || ctx.supplierScopeIds.length === 0) return; // no scope row = all suppliers

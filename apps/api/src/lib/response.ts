@@ -25,6 +25,10 @@ export function sendNoContent(res: Response): void {
   res.status(204).send();
 }
 
+export function sendMessage(res: Response, message: string): void {
+  res.status(200).json({ data: { message } });
+}
+
 export function sendErrorPayload(
   res: Response,
   status: number,

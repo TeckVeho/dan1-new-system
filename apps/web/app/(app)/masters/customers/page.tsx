@@ -108,7 +108,18 @@ function CustomersContent() {
   return (
     <div>
       <MasterBackLink />
-      <PageHeader title="施設マスタ" description="施設の一覧・成り代わり表示の開始（FR-105, FR-106）" />
+      <PageHeader
+        title="施設マスタ"
+        description="施設の一覧・成り代わり表示の開始（FR-105, FR-106）"
+        actions={
+          <Link
+            href="/masters/customers/new"
+            className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-[13px] font-medium text-white hover:bg-primary/90"
+          >
+            新規登録
+          </Link>
+        }
+      />
 
       {error ? (
         <Alert variant="danger" title="エラー" className="mb-4">
