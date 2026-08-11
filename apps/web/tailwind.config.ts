@@ -25,7 +25,10 @@ const config: Config = {
         danger: "#CF222E",
         border: "rgb(var(--color-border) / <alpha-value>)",
         muted: "rgb(var(--color-muted) / <alpha-value>)",
-        surface: "rgb(var(--color-surface) / <alpha-value>)",
+        surface: {
+          DEFAULT: "rgb(var(--color-surface) / <alpha-value>)",
+          subtle: "rgb(var(--color-surface-subtle) / <alpha-value>)",
+        },
         bg: "rgb(var(--color-bg) / <alpha-value>)",
         sidebar: "rgb(var(--color-sidebar) / <alpha-value>)",
         text: "rgb(var(--color-text) / <alpha-value>)",

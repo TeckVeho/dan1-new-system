@@ -40,7 +40,7 @@ export function DataTable<T>({
     <div className={cn("overflow-x-auto", className)}>
       <table className="w-full min-w-[640px] text-left text-[13px]">
         <thead>
-          <tr className="sticky top-0 border-b border-border bg-surface/95 text-xs text-muted backdrop-blur">
+          <tr className="sticky top-0 border-b border-border bg-surface-subtle text-xs text-muted backdrop-blur">
             {columns.map((column) => (
               <th
                 key={column.key}
@@ -61,7 +61,7 @@ export function DataTable<T>({
               key={getRowKey ? getRowKey(row, rowIndex) : rowIndex}
               className={cn(
                 "border-b border-border/80 last:border-0",
-                onRowClick && "cursor-pointer hover:bg-bg",
+                onRowClick && "cursor-pointer hover:bg-primary-light",
               )}
               onClick={onRowClick ? () => onRowClick(row, rowIndex) : undefined}
             >

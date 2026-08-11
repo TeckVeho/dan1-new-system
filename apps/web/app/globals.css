@@ -15,10 +15,11 @@
   --color-accent-light: 251 243 224;
   --color-bg: 244 247 242;
   --color-surface: 255 255 255;
+  --color-surface-subtle: 250 246 241;
   --color-sidebar: 255 255 255;
   --color-text: 112 78 48;
-  --color-muted: 138 117 96;
-  --color-border: 229 221 212;
+  --color-muted: 122 101 82;
+  --color-border: 217 205 191;
 }
 
 body {

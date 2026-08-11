@@ -23,36 +23,48 @@
 
 ## 2. デザイントークン
 
-### 2.1 カラー（misaki-reports 準拠）
+### 2.1 カラー（dan1 ブランド）
 
-`tailwind.config.ts` / CSS 変数に同一値を定義する。
+`tailwind.config.ts` / CSS 変数に同一値を定義する。Tailwind のアルファ修飾子（`bg-primary/10` 等）のため、CSS 変数は **R G B チャンネル値**（スペース区切り）で保持する。
 
 | トークン | 値 | Tailwind | 用途 |
 |---------|-----|----------|------|
-| primary | `#5E6AD2` | `primary` | 主ボタン、アクティブナビ、フォーカス、リンク |
-| primary-hover | `#4F5ABF` | `primary-hover` | 主ボタンホバー |
-| primary-light | `#ECEEFB` | `primary-light` | 薄い強調背景（任意） |
+| primary | `#704E30` | `primary` | 主ボタン、アクティブナビ、フォーカス、リンク |
+| primary-hover | `#5A3C24` | `primary-hover` | 主ボタンホバー |
+| primary-light | `#F3EBE4` | `primary-light` | 薄い強調背景・テーブル行ホバー |
+| accent | `#E2A012` | `accent` | アクセント |
+| accent-hover | `#C98E0F` | `accent-hover` | アクセントホバー |
+| accent-light | `#FBF3E0` | `accent-light` | 薄いアクセント背景 |
 | success | `#2DA44E` | `success` | 成功・確定 |
 | warning | `#BF8700` | `warning` | 警告・締切接近 |
 | danger | `#CF222E` | `danger` | エラー・削除・締切超過 |
-| border | `#E1E4E8` | `border` | 境界線 |
-| muted | `#656D76` | `muted` | 補助テキスト・アイコン |
+| border | `#D9CDBF` | `border` | 境界線 |
+| muted | `#7A6552` | `muted` | 補助テキスト・アイコン |
 | surface | `#FFFFFF` | `surface` | カード・サイドバー・入力背景 |
-| bg | `#F6F8FA` | `bg` | ページ背景 |
+| surface-subtle | `#FAF6F1` | `surface-subtle` | テーブルヘッダー・薄い背景 |
+| bg | `#F4F7F2` | `bg` | ページ背景 |
 | sidebar | `#FFFFFF` | `sidebar` | サイドバー背景 |
-| text | `#1F2328` | `text` | 本文 |
+| text | `#704E30` | `text` | 本文 |
 
 ```css
 :root {
-  --color-primary: #5e6ad2;
-  --color-bg: #f6f8fa;
-  --color-surface: #ffffff;
-  --color-sidebar: #ffffff;
-  --color-text: #1f2328;
-  --color-muted: #656d76;
-  --color-border: #e1e4e8;
+  --color-primary: 112 78 48;
+  --color-primary-hover: 90 60 36;
+  --color-primary-light: 243 235 228;
+  --color-accent: 226 160 18;
+  --color-accent-hover: 201 142 15;
+  --color-accent-light: 251 243 224;
+  --color-bg: 244 247 242;
+  --color-surface: 255 255 255;
+  --color-surface-subtle: 250 246 241;
+  --color-sidebar: 255 255 255;
+  --color-text: 112 78 48;
+  --color-muted: 122 101 82;
+  --color-border: 217 205 191;
 }
 ```
+
+**コントラスト基準:** テーブルの罫線・ホバーは白背景に対して最低 1.4:1 以上、12px 以下のテキストは WCAG AA（4.5:1 以上）を確保する。
 
 **状態色の併用ルール（NFR-19-2）:** 発注スケジュールの赤/青/黄など色分けには、必ずラベルまたはアイコンを併記する。色のみで意味を伝えない。
 
@@ -327,8 +339,8 @@ misaki にない要素。シェル最上部（サイドバーの右・メイン�
 | 項目 | 仕様 |
 |------|------|
 | 文字 | `text-[13px]`。ヘッダーは `text-[12px] text-muted font-medium` |
-| ヘッダー | `sticky top-0 border-b border-border bg-surface/95 backdrop-blur` |
-| 行 | `border-b border-border/80`。`hover:bg-bg` |
+| ヘッダー | `sticky top-0 border-b border-border bg-surface-subtle backdrop-blur` |
+| 行 | `border-b border-border/80`。`hover:bg-primary-light` |
 | 選択行 | `bg-primary/10` |
 | 空状態 | 中央寄せの短文 + 必要ならクリア操作（misaki の EmptyState） |
 
