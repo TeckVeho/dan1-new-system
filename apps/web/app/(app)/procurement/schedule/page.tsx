@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Download, Printer, Search } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { InternalOnly } from "@/components/auth/InternalOnly";
@@ -9,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FilterChip } from "@/components/ui/badge";
 import { ScheduleGrid, ScheduleLegend } from "@/components/procurement/ScheduleGrid";
-import { getProcurementSchedule, patchScheduleCell } from "@/lib/api";
+import { getProcurementSchedule, patchScheduleCell, exportProcurementSchedule } from "@/lib/api";
 import { addDays, formatDateTime } from "@/lib/utils";
 import type { ScheduleResponse } from "@/lib/types";
 
 function ScheduleContent() {
+  const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
   const [supplierId, setSupplierId] = useState("");
   const [deliveryFrom, setDeliveryFrom] = useState(today);
@@ -25,7 +27,9 @@ function ScheduleContent() {
 
   const [data, setData] = useState<ScheduleResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!supplierId) {
@@ -58,6 +62,32 @@ function ScheduleContent() {
     load();
   }, [load]);
 
+  async function handleExport(format: "xlsx" | "csv") {
+    if (!supplierId) {
+      setError("対象業者IDを入力してください");
+      return;
+    }
+    setExporting(true);
+    setError(null);
+    setExportMessage(null);
+    try {
+      const res = await exportProcurementSchedule({
+        supplierId,
+        deliveryFrom,
+        deliveryTo,
+        search: itemQuery || undefined,
+        shortageOnly: shortageOnly || undefined,
+        format,
+      });
+      setExportMessage(`Excel出力を開始しました（ジョブID: ${res.jobId}）`);
+      router.push(`/admin/jobs/${res.jobId}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "出力の開始に失敗しました");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function handleCellEdit(
     scheduleId: string,
     patch: { orderQty?: string; actualStock?: string },
@@ -78,11 +108,11 @@ function ScheduleContent() {
         description="仕入業者・納品日を指定して発注量・在庫を確認・編集します（業者ロックは廃止）"
         actions={
           <>
-            <Button variant="secondary">
+            <Button variant="secondary" onClick={() => window.print()} disabled={!data}>
               <Printer className="h-3.5 w-3.5" />
               印刷
             </Button>
-            <Button variant="secondary">
+            <Button variant="secondary" loading={exporting} onClick={() => handleExport("xlsx")} disabled={!supplierId}>
               <Download className="h-3.5 w-3.5" />
               Excel出力
             </Button>
@@ -93,6 +123,12 @@ function ScheduleContent() {
       {error ? (
         <Alert variant="danger" title="エラー" className="mb-4">
           {error}
+        </Alert>
+      ) : null}
+
+      {exportMessage ? (
+        <Alert variant="success" className="mb-4">
+          {exportMessage}
         </Alert>
       ) : null}
 

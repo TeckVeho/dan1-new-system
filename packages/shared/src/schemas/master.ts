@@ -81,6 +81,26 @@ export const stockItemSchema = z.object({
   name: z.string().min(1).max(200),
   category: z.string().optional(),
   unit: z.string().min(1).max(20),
+  isRawMaterial: z.boolean().default(false),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const pickingDestinationRuleSchema = z.object({
+  stockItemId: z.string().min(1),
+  destination: z.enum(["regular_menu", "allergen_menu", "pouch", "other"]),
+  note: z.string().max(255).optional(),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const bagDesignSchema = z.object({
+  customerId: z.string().min(1),
+  name: z.string().min(1).max(100),
+  facilityNumber: z.number().int().min(1).optional(),
+  maxUnits: z.number().int().min(1).max(20).default(4),
+  maxMeals: z.number().int().min(1).max(200).default(20),
+  unitIds: z.array(z.string()).default([]),
   sortOrder: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
 });

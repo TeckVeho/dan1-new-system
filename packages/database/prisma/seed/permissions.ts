@@ -13,8 +13,10 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "report.read", "report.generate", "document.read", "document.upload", "document.publish",
     "document.regenerate", "shipping.generate", "shipping.send_api", "invoice.read", "invoice.close",
     "invoice.issue", "invoice.correct", "sales_price.read", "sales_price.generate",
+    "inquiry.read", "inquiry.create", "inquiry.reply",
     "admin.user.read", "admin.user.create", "admin.user.update", "admin.audit_log.read",
-    "admin.job.cancel", "admin.impersonate", "admin.settings.read", "admin.settings.update",
+    "admin.role.update", "admin.job.read", "admin.job.cancel", "admin.impersonate",
+    "admin.settings.read", "admin.settings.update",
   ],
   internal_staff: [
     "announcement.read", "order.read", "order.create", "order.update", "order.export", "order_alert.read",
@@ -23,15 +25,18 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "procurement.import.execute", "procurement.stock_record.update", "procurement.adjustment.update",
     "procurement.recalculate", "report.read", "report.generate", "document.read", "document.upload",
     "document.publish", "shipping.generate", "invoice.read", "sales_price.read",
-    "admin.job.cancel", "admin.settings.read", "admin.settings.update",
+    "inquiry.read", "inquiry.create", "inquiry.reply",
+    "admin.job.read", "admin.job.cancel", "admin.settings.read", "admin.settings.update",
   ],
   facility_admin: [
     "announcement.read", "order.read", "order.create", "order.update", "order.export",
     "report.read", "document.read", "invoice.read",
+    "inquiry.read", "inquiry.create", "inquiry.reply",
   ],
   facility_staff: [
     "announcement.read", "order.read", "order.create", "order.update", "order.export",
     "report.read", "document.read",
+    "inquiry.read", "inquiry.create", "inquiry.reply",
   ],
 };
 
@@ -81,11 +86,15 @@ const PERMISSION_META: Record<string, { name: string; category: string }> = {
   "invoice.correct": { name: "請求訂正", category: "invoice" },
   "sales_price.read": { name: "売価閲覧", category: "invoice" },
   "sales_price.generate": { name: "売価計算", category: "invoice" },
+  "inquiry.read": { name: "問い合わせ閲覧", category: "inquiry" },
+  "inquiry.create": { name: "問い合わせ作成", category: "inquiry" },
+  "inquiry.reply": { name: "問い合わせ返信", category: "inquiry" },
   "admin.user.read": { name: "ユーザー閲覧", category: "admin" },
   "admin.user.create": { name: "ユーザー作成", category: "admin" },
   "admin.user.update": { name: "ユーザー更新", category: "admin" },
   "admin.role.update": { name: "ロール権限更新", category: "admin" },
   "admin.audit_log.read": { name: "監査ログ閲覧", category: "admin" },
+  "admin.job.read": { name: "ジョブ閲覧", category: "admin" },
   "admin.job.cancel": { name: "ジョブ取消", category: "admin" },
   "admin.impersonate": { name: "成り代わり", category: "admin" },
   "admin.settings.read": { name: "システム設定閲覧", category: "admin" },
@@ -97,6 +106,9 @@ function collectAllPermissionCodes(): string[] {
   const codes = new Set<string>();
   for (const roleCodes of Object.values(DEFAULT_ROLE_PERMISSIONS)) {
     for (const code of roleCodes) codes.add(code);
+  }
+  for (const code of Object.keys(PERMISSION_META)) {
+    codes.add(code);
   }
   return [...codes].sort();
 }
@@ -119,14 +131,24 @@ export async function seedPermissions(prisma: PrismaClient): Promise<void> {
     const codes = DEFAULT_ROLE_PERMISSIONS[role.code];
     if (!codes) continue;
 
-    const existing = await prisma.rolePermission.count({ where: { roleId: role.id } });
-    if (existing > 0) continue;
+    const existingCodes = new Set(
+      (
+        await prisma.rolePermission.findMany({
+          where: { roleId: role.id },
+          include: { permission: true },
+        })
+      ).map((rp) => rp.permission.code),
+    );
+
+    const missing = codes
+      .map((code) => permissionByCode.get(code))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p))
+      .filter((permission) => !existingCodes.has(permission.code));
+
+    if (missing.length === 0) continue;
 
     await prisma.rolePermission.createMany({
-      data: codes
-        .map((code) => permissionByCode.get(code))
-        .filter((p): p is NonNullable<typeof p> => Boolean(p))
-        .map((permission) => ({ roleId: role.id, permissionId: permission.id })),
+      data: missing.map((permission) => ({ roleId: role.id, permissionId: permission.id })),
       skipDuplicates: true,
     });
   }

@@ -3,9 +3,10 @@ import { z } from "zod";
 import { prisma } from "@dan1/database";
 import { serializeBigInt } from "@dan1/shared";
 import { authenticate, authorize } from "../../middleware/auth.js";
-import { resolveScopedCustomerId } from "../../lib/scope.js";
+import { resolveScopedCustomerId, resolveOptionalScopedCustomerId } from "../../lib/scope.js";
 import { sendList, buildPageMeta } from "../../lib/response.js";
-import { getOrderHistory, getUnenteredFacilities, getOrderSummary, getMealOrderChanges, updateOrderAlertStatus } from "../../services/orders.service.js";
+import { getOrderHistory, getUnenteredFacilities, getOrderSummary, getMealOrderChanges, updateOrderAlertStatus, getMealCountConfirmation } from "../../services/orders.service.js";
+import { detectUnacceptableOrders } from "../../services/order-alert.service.js";
 import { sendData } from "../../lib/response.js";
 import { NotFoundError } from "../../lib/errors.js";
 import { paramId } from "../../lib/http.js";
@@ -56,6 +57,40 @@ orderHistoryRouter.get("/unentered-facilities", authorize("order_alert.read"), a
       meta: { totalCount: alerts.length },
       excluded,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+orderHistoryRouter.get("/unacceptable-alerts", authorize("order_alert.read"), async (req, res, next) => {
+  try {
+    const query = alertsQuerySchema.parse(req.query);
+    const result = await detectUnacceptableOrders({
+      serviceDateFrom: new Date(query.serviceDateFrom),
+      serviceDateTo: new Date(query.serviceDateTo),
+    });
+    sendData(res, result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+const mealCountQuerySchema = z.object({
+  customerId: z.string().optional(),
+  serviceDateFrom: z.string(),
+  serviceDateTo: z.string(),
+});
+
+orderHistoryRouter.get("/meal-counts", authorize("order.read"), async (req, res, next) => {
+  try {
+    const query = mealCountQuerySchema.parse(req.query);
+    const customerId = resolveOptionalScopedCustomerId(req.context!, query.customerId);
+    const result = await getMealCountConfirmation({
+      serviceDateFrom: new Date(query.serviceDateFrom),
+      serviceDateTo: new Date(query.serviceDateTo),
+      customerId,
+    });
+    sendData(res, result);
   } catch (error) {
     next(error);
   }

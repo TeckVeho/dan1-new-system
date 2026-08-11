@@ -14,6 +14,7 @@ import {
   UtensilsCrossed,
   Users,
   Wheat,
+  Receipt,
 } from "lucide-react";
 
 export type MasterLink = {
@@ -175,9 +176,42 @@ export const MASTER_SECTIONS: MasterSection[] = [
       {
         href: "/masters/stock-items",
         label: "業者別商品",
-        description: "発注対象の商品マスタ",
+        description: "発注対象の商品マスタ（原体フラグ対応）",
         icon: Package,
         status: "partial",
+      },
+      {
+        href: "/masters/picking-destinations",
+        label: "ピッキング出力先",
+        description: "商品ごとのピッキング出力先設定",
+        icon: Package,
+        status: "ready",
+      },
+      {
+        href: "/masters/bag-designs",
+        label: "袋の集約設計",
+        description: "施設の袋設計とユニット割当",
+        icon: Package,
+        status: "ready",
+      },
+    ],
+  },
+  {
+    heading: "請求",
+    items: [
+      {
+        href: "/masters/unit-prices",
+        label: "単価マスタ",
+        description: "献立種類ごとの単価（施設別・共通）",
+        icon: Receipt,
+        status: "ready",
+      },
+      {
+        href: "/masters/tax-rates",
+        label: "税率マスタ",
+        description: "消費税率の適用期間管理",
+        icon: Tag,
+        status: "ready",
       },
     ],
   },

@@ -5,4 +5,7 @@ export * from "./schemas/master.js";
 export * from "./schemas/order.js";
 export * from "./schemas/document.js";
 export * from "./schemas/procurement.js";
+export * from "./schemas/billing.js";
+export * from "./schemas/inquiry.js";
+export * from "./schemas/report.js";
 export * from "./api.js";

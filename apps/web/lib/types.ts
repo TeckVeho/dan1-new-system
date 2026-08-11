@@ -29,6 +29,7 @@ export type AuthUser = {
   customerName?: string;
   impersonating?: boolean;
   passwordChangeRequired?: boolean;
+  permissions?: string[];
 };
 
 // --- 注文 ---
@@ -419,6 +420,41 @@ export type AdminPermission = {
   category: string;
 };
 
+export type NotificationItem = {
+  id: string;
+  title: string;
+  body: string;
+  category: string;
+  isRead: boolean;
+  linkUrl: string | null;
+  createdAt: string;
+};
+
+export type JobItem = {
+  id: string;
+  jobType: string;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  progress: number;
+  error: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  createdByName: string | null;
+};
+
+export type JobLogItem = {
+  id: string;
+  level: string;
+  message: string;
+  createdAt: string;
+};
+
+export type JobDetail = JobItem & {
+  params: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  logs: JobLogItem[];
+};
+
 export type InternalAdminUser = {
   id: string;
   type: "internal";
@@ -451,4 +487,321 @@ export type AuditLog = {
   entityId: string;
   createdAt: string;
   summary: string;
+};
+
+// --- 請求 ---
+
+export type InvoiceStatus = "draft" | "issued" | "corrected" | "cancelled";
+
+export type InvoiceLine = {
+  id: string;
+  lineNo: number;
+  description: string;
+  quantity: number;
+  unitPrice: string;
+  amount: string;
+  lineType: string;
+};
+
+export type InvoiceLineInput = {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineType?: "meal" | "surcharge" | "adjustment";
+};
+
+export type InvoiceItem = {
+  id: string;
+  customerId: string;
+  invoiceMonth: string;
+  status: InvoiceStatus;
+  totalAmount: string;
+  version: number;
+  pdfFileId?: string | null;
+  issuedAt: string | null;
+  createdAt: string;
+  customer?: { id: string; customerCode: string; name: string };
+  lines?: InvoiceLine[];
+};
+
+export type InvoiceDetail = InvoiceItem & {
+  lines: InvoiceLine[];
+  settingsSnapshot?: Record<string, unknown> | null;
+};
+
+export type InvoicePreviewItem = {
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  skipReason?: "existing_draft" | "no_orders" | "no_priced_lines";
+  lines: InvoiceLine[];
+  subtotal: string;
+  taxAmount: string;
+  totalAmount: string;
+  taxRate: string;
+};
+
+export type InvoiceClosePreview = {
+  invoiceMonth: string;
+  taxRate: string;
+  period: { from: string; to: string };
+  creatableCount: number;
+  skippedCount: number;
+  totalSubtotal: string;
+  totalAmount: string;
+  items: InvoicePreviewItem[];
+};
+
+export type InvoiceCorrectionVersion = {
+  id: string;
+  version: number;
+  status: InvoiceStatus;
+  totalAmount: string;
+  issuedAt: string | null;
+  correctedFromVersion: number | null;
+  correctionReason: string | null;
+  correctedAt: string | null;
+  lineCount: number;
+  lines: InvoiceLine[];
+};
+
+export type InvoiceCorrectionHistory = {
+  invoiceId: string;
+  customerId: string;
+  invoiceMonth: string;
+  currentVersion: number;
+  items: InvoiceCorrectionVersion[];
+};
+
+export type DeliveryDatePreview = {
+  customer: { id: string; name: string; customerCode: string };
+  pattern: { id: string; code: string; name: string; leadDays: number };
+  serviceDate: string;
+  manufacturingDate: string;
+  pickupDate: string;
+  arrivalDate: string;
+  warnings: string[];
+};
+
+export type StockRecordItem = {
+  id: string;
+  stockItemId: string;
+  stockItemName: string;
+  stockItemCode: string;
+  unit: string;
+  recordDate: string;
+  quantity: string;
+  recordType: string;
+  createdAt: string;
+  createdBy: string;
+};
+
+export type MealCountAdjustmentItem = {
+  id: string;
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  serviceDate: string;
+  mealTypeId: string;
+  mealTypeCode: string;
+  mealTypeName: string;
+  adjustMeals: number;
+  reason: string | null;
+  version: number;
+  updatedAt: string;
+};
+
+export type MealType = {
+  id: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+export type InquiryMessageItem = {
+  id: string;
+  senderType: string;
+  senderUserId: string | null;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type InquiryThreadItem = {
+  id: string;
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  subject: string | null;
+  status: string;
+  lastMessageAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  unreadCount?: number;
+  lastMessage?: InquiryMessageItem | null;
+};
+
+export type InquiryThreadDetail = InquiryThreadItem & {
+  messages: InquiryMessageItem[];
+};
+
+export type ImportCalendarDay = {
+  date: string;
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  queued: number;
+  batches: Array<{ id: string; supplierName: string; fileType: string; status: string }>;
+};
+
+export type ImportCalendarResponse = {
+  month: string;
+  days: ImportCalendarDay[];
+};
+
+export type RiceOrderLogItem = {
+  id: string;
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  action: string;
+  entityType: string;
+  summary: string;
+  actorName: string;
+  createdAt: string;
+};
+
+export type MealCountSyncHistoryItem = {
+  id: string;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  progress: number;
+  dateFrom: string;
+  dateTo: string;
+  totalMeals: number;
+  customerCount: number;
+  referenceCount: number;
+  error: string | null;
+  executedBy: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+};
+
+export type MealCountConfirmRow = {
+  id: string;
+  serviceDate: string;
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  unitId: string;
+  unitName: string;
+  mealType: string;
+  menuKind: string;
+  orderType: string;
+  quantity: number;
+  status: string;
+};
+
+export type MealCountConfirmResponse = {
+  rows: MealCountConfirmRow[];
+  totalQuantity: number;
+  customerCount: number;
+};
+
+export type UnacceptableOrderAlert = {
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  serviceDate: string;
+  reasons: Array<"allergen_only" | "zero_basic_with_allergen">;
+  mealCount: number;
+  allergenCount: number;
+  riceCount: number;
+};
+
+// --- 帳票 ---
+
+export type ReportParamField = {
+  key: string;
+  label: string;
+  type: "date" | "string" | "number" | "boolean" | "select";
+  required?: boolean;
+  placeholder?: string;
+  options?: Array<{ value: string; label: string }>;
+};
+
+export type ReportCatalogItem = {
+  key: string;
+  name: string;
+  description: string;
+  category: "procurement" | "production" | "delivery" | "order" | "billing";
+  formats: Array<"xlsx" | "csv" | "pdf">;
+  permission: string;
+  specStatus: "confirmed" | "provisional";
+  paramFields: ReportParamField[];
+};
+
+export type BagDesignItem = {
+  id: string;
+  customerId: string;
+  name: string;
+  facilityNumber: number | null;
+  maxUnits: number;
+  maxMeals: number;
+  sortOrder: number;
+  isActive: boolean;
+  customer?: { id: string; customerCode: string; name: string };
+  units?: Array<{ id: string; unitId: string; unit: { id: string; name: string; unitCode: string } }>;
+};
+
+export type PickingDestinationItem = {
+  id: string;
+  stockItemId: string;
+  destination: string;
+  note: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  stockItem?: {
+    id: string;
+    name: string;
+    itemCode: string;
+    supplier?: { id: string; name: string; code: string };
+  };
+};
+
+export type ScheduleCalcBasis = {
+  schedule: {
+    id: string;
+    deliveryDate: string;
+    orderQuantity: string;
+    stockQuantity: string | null;
+    status: string;
+  };
+  stockItem: { id: string; name: string; itemCode: string; unit: string };
+  supplier: { id: string; name: string };
+  calcSnapshot: unknown;
+  references: Array<{
+    customerId: string;
+    customerCode: string | null;
+    customerName: string | null;
+    referenceDate: string;
+    referenceQty: string;
+    fallbackUsed: boolean;
+    ruleCode: string | null;
+    ruleName: string | null;
+    latestRice: {
+      quantity: number | null;
+      referenceDate: string | null;
+      fallbackUsed: boolean;
+      unitName?: string;
+    };
+  }>;
+};
+
+export type SalesPricePreview = {
+  invoiceMonth: string;
+  rowCount: number;
+  preview: (string | number)[][];
 };

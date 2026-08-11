@@ -22,11 +22,14 @@ import {
   orderTypeSchema,
   riceTypeSchema,
   longHolidaySchema,
+  unitPriceSchema,
+  taxRateSchema,
 } from "@dan1/shared";
 import { createMasterRouter } from "./crud-factory.js";
 import { customerSettingsRouter } from "./settings.routes.js";
 import { customerAllergensRouter } from "./customer-allergens.routes.js";
 import { customerProductionPatternsRouter } from "./customer-production-patterns.routes.js";
+import { bagDesignsRouter, pickingDestinationsRouter } from "./bag-designs.routes.js";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { sendData, sendNoContent } from "../../lib/response.js";
 import { NotFoundError } from "../../lib/errors.js";
@@ -480,3 +483,58 @@ mastersRouter.use(
     }),
   }),
 );
+
+mastersRouter.use(
+  "/unit-prices",
+  createMasterRouter({
+    entityType: "unit_price",
+    model: prisma.unitPrice,
+    createSchema: unitPriceSchema,
+    updateSchema: unitPriceSchema.partial(),
+    searchFields: [],
+    softDelete: false,
+    writePermission: "master.customer.update",
+    filterQuery: { customerId: "customerId", menuKindId: "menuKindId" },
+    include: { customer: true, menuKind: true },
+    toCreateData: (input) => ({
+      customerId: input.customerId ? BigInt(input.customerId) : null,
+      menuKindId: BigInt(input.menuKindId),
+      price: input.price,
+      validFrom: new Date(input.validFrom),
+      validTo: input.validTo ? new Date(input.validTo) : null,
+    }),
+    toUpdateData: (input) => ({
+      ...(input.customerId !== undefined ? { customerId: input.customerId ? BigInt(input.customerId) : null } : {}),
+      ...(input.menuKindId !== undefined ? { menuKindId: BigInt(input.menuKindId) } : {}),
+      ...(input.price !== undefined ? { price: input.price } : {}),
+      ...(input.validFrom !== undefined ? { validFrom: new Date(input.validFrom) } : {}),
+      ...(input.validTo !== undefined ? { validTo: input.validTo ? new Date(input.validTo) : null } : {}),
+    }),
+  }),
+);
+
+mastersRouter.use(
+  "/tax-rates",
+  createMasterRouter({
+    entityType: "tax_rate",
+    model: prisma.taxRate,
+    createSchema: taxRateSchema,
+    updateSchema: taxRateSchema.partial(),
+    searchFields: [],
+    softDelete: false,
+    writePermission: "master.customer.update",
+    toCreateData: (input) => ({
+      rate: input.rate,
+      validFrom: new Date(input.validFrom),
+      validTo: input.validTo ? new Date(input.validTo) : null,
+    }),
+    toUpdateData: (input) => ({
+      ...(input.rate !== undefined ? { rate: input.rate } : {}),
+      ...(input.validFrom !== undefined ? { validFrom: new Date(input.validFrom) } : {}),
+      ...(input.validTo !== undefined ? { validTo: input.validTo ? new Date(input.validTo) : null } : {}),
+    }),
+  }),
+);
+
+mastersRouter.use("/bag-designs", bagDesignsRouter);
+mastersRouter.use("/picking-destinations", pickingDestinationsRouter);

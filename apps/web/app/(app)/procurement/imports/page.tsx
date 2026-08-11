@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DataTable, Pagination, type DataTableColumn } from "@/components/layout/DataTable";
-import { getProcurementImports, postProcurementImport } from "@/lib/api";
+import { getProcurementImports, postProcurementImport, uploadFile } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
 import type { ImportRecord } from "@/lib/types";
 
@@ -23,27 +23,34 @@ const STATUS_LABEL: Record<ImportRecord["status"], { label: string; variant: "mu
 
 function ImportForm({ onQueued }: { onQueued: () => void }) {
   const [supplierId, setSupplierId] = useState("");
-  const [importType, setImportType] = useState("cooking_sheet");
+  const [fileType, setFileType] = useState("cooking_sheet");
   const [targetDateFrom, setTargetDateFrom] = useState("");
   const [targetDateTo, setTargetDateTo] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!selectedFile) {
+      setError("取込ファイルを選択してください");
+      return;
+    }
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
+      const uploaded = await uploadFile(selectedFile);
       const res = await postProcurementImport({
-        importType,
+        fileType,
         supplierId,
-        fileId: "pending-upload",
-        targetDateFrom,
-        targetDateTo,
+        fileId: uploaded.id,
+        targetDateFrom: targetDateFrom || undefined,
+        targetDateTo: targetDateTo || undefined,
       });
       setMessage(`取込を登録しました（ジョブID: ${res.jobId}）`);
+      setSelectedFile(null);
       onQueued();
     } catch (err) {
       setError(err instanceof Error ? err.message : "取込の登録に失敗しました");
@@ -68,26 +75,34 @@ function ImportForm({ onQueued }: { onQueued: () => void }) {
         </Alert>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Select label="ファイル種別" value={importType} onChange={(e) => setImportType(e.target.value)}>
+      <form onSubmit={handleSubmit} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <Select label="ファイル種別" value={fileType} onChange={(e) => setFileType(e.target.value)}>
           <option value="cooking_sheet">調理表</option>
           <option value="order_file">注文ファイル</option>
           <option value="cooking_file">食数ファイル</option>
         </Select>
+        <div>
+          <label className="mb-1.5 block text-[13px] font-medium text-muted">取込ファイル</label>
+          <input
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+            className="block w-full text-[13px] text-text file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-[12px] file:font-medium file:text-primary"
+            required
+          />
+        </div>
         <Input label="対象業者ID" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} required />
         <Input
           label="対象期間（開始）"
           type="date"
           value={targetDateFrom}
           onChange={(e) => setTargetDateFrom(e.target.value)}
-          required
         />
         <Input
           label="対象期間（終了）"
           type="date"
           value={targetDateTo}
           onChange={(e) => setTargetDateTo(e.target.value)}
-          required
         />
         <div className="flex items-end">
           <Button type="submit" loading={saving} className="w-full">

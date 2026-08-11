@@ -9,6 +9,7 @@ type AuthContextValue = {
   user: AuthUser;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
+  can: (permission: string) => boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -65,6 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/login");
   }
 
+  function can(permission: string): boolean {
+    const perms = user?.permissions ?? [];
+    return perms.includes("*") || perms.includes(permission);
+  }
+
   if (!ready || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg text-[13px] text-muted">
@@ -74,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, refresh, logout: handleLogout }}>
+    <AuthContext.Provider value={{ user, refresh, logout: handleLogout, can }}>
       {children}
     </AuthContext.Provider>
   );

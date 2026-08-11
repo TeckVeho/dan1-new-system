@@ -19,7 +19,8 @@ import { MasterBackLink } from "@/components/masters/MasterBackLink";
 
 function CustomersContent() {
   const router = useRouter();
-  const { refresh } = useAuth();
+  const { refresh, can } = useAuth();
+  const canImpersonate = can("admin.impersonate");
   const [rows, setRows] = useState<Customer[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -90,16 +91,18 @@ function CustomersContent() {
             <Pencil className="h-3.5 w-3.5" />
             編集
           </Link>
-          <Button
-            size="md"
-            variant="secondary"
-            onClick={() => handleImpersonate(row)}
-            loading={impersonatingId === row.id}
-            className="h-7"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            施設ビュー
-          </Button>
+          {canImpersonate ? (
+            <Button
+              size="md"
+              variant="secondary"
+              onClick={() => handleImpersonate(row)}
+              loading={impersonatingId === row.id}
+              className="h-7"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              施設ビュー
+            </Button>
+          ) : null}
         </div>
       ),
     },

@@ -7,6 +7,7 @@ import { orderHistoryRouter } from "./history.js";
 import { orderListRouter } from "./list.js";
 import { newYearOrdersRouter } from "./new-year.js";
 import { orderEntryRouter } from "./entry.js";
+import { riceLogsRouter } from "./rice-logs.js";
 
 export const ordersRouter = Router();
 
@@ -18,3 +19,4 @@ ordersRouter.use(riceOrdersRouter);
 ordersRouter.use(allergenOrdersRouter);
 ordersRouter.use(orderHistoryRouter);
 ordersRouter.use(orderListRouter);
+ordersRouter.use(riceLogsRouter);

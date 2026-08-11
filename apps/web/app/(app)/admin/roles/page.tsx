@@ -9,9 +9,11 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { getAdminPermissions, getAdminRoles, updateRolePermissions } from "@/lib/api";
 import type { AdminPermission, AdminRole } from "@/lib/types";
 
+const FACILITY_PERMISSION_CATEGORIES = new Set(["announcement", "order", "report", "document", "invoice"]);
+
 function RolesContent() {
-  const { user } = useAuth();
-  const canEdit = user.role === "system_admin";
+  const { user, can } = useAuth();
+  const canEdit = can("admin.role.update");
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [permissions, setPermissions] = useState<AdminPermission[]>([]);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
@@ -72,7 +74,11 @@ function RolesContent() {
   }
 
   const selectedRole = roles.find((r) => r.id === selectedRoleId);
-  const grouped = permissions.reduce<Record<string, AdminPermission[]>>((acc, permission) => {
+  const visiblePermissions =
+    selectedRole?.scope === "facility"
+      ? permissions.filter((p) => FACILITY_PERMISSION_CATEGORIES.has(p.category))
+      : permissions;
+  const grouped = visiblePermissions.reduce<Record<string, AdminPermission[]>>((acc, permission) => {
     (acc[permission.category] ??= []).push(permission);
     return acc;
   }, {});

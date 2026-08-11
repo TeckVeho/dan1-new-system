@@ -348,7 +348,28 @@ customer-reference-rules / qr-layouts / qr-payload-rules / announcements
 | GET | `/record-locks` | 編集中インジケータの取得 | FR-307 |
 | POST | `/record-locks/heartbeat` | 編集中の継続通知 | FR-307 |
 
-### 2.8 管理（`/admin`）
+| POST | `/record-locks/heartbeat` | 編集中の継続通知 | FR-307 |
+
+### 2.9 問い合わせ（`/inquiries`）
+
+現行 `/chat/` `/chat-all/` の後継。FR-309。
+
+| メソッド | パス | 説明 | 権限 |
+|---------|------|------|------|
+| GET | `/inquiries/threads` | スレッド一覧（施設は自施設のみ） | `inquiry.read` |
+| POST | `/inquiries/threads` | スレッド作成（初回メッセージ同梱） | `inquiry.create` |
+| GET | `/inquiries/threads/:id` | スレッド詳細＋メッセージ一覧 | `inquiry.read` |
+| PATCH | `/inquiries/threads/:id` | ステータス更新（`open` / `closed`） | `inquiry.reply` |
+| POST | `/inquiries/threads/:id/messages` | メッセージ送信 | `inquiry.reply` |
+| PATCH | `/inquiries/threads/:id/read` | スレッド内未読メッセージを既読化 | `inquiry.read` |
+
+**クエリ（GET `/inquiries/threads`）**: `customerId`, `status`, `page`, `perPage`
+
+**作成（POST `/inquiries/threads`）**: `{ customerId?, subject?, body }` — 施設ユーザーは `customerId` 省略可（自施設が自動設定）
+
+**メッセージ送信**: `{ body }` — 送信と同時に `last_message_at` を更新。相手施設ユーザーへ `inquiry` カテゴリ通知（将来）
+
+### 2.10 管理（`/admin`）
 
 | メソッド | パス | 説明 | FR |
 |---------|------|------|-----|

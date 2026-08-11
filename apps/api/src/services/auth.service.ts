@@ -352,6 +352,7 @@ export async function getAuthUserProfile(ctx: RequestContext) {
       customerName,
       impersonating: Boolean(ctx.impersonatingCustomerId),
       passwordChangeRequired: !user.passwordChangedAt,
+      permissions: [...ctx.permissions],
     };
   }
 
@@ -369,6 +370,7 @@ export async function getAuthUserProfile(ctx: RequestContext) {
       customerId: customerUser.customerId.toString(),
       customerName: customerUser.customer.name,
       passwordChangeRequired: !customerUser.passwordChangedAt,
+      permissions: [...ctx.permissions],
     };
   }
 

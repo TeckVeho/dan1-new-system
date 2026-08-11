@@ -94,7 +94,7 @@ async function assertCanDeleteInternalUser(ctx: RequestContext, id: bigint) {
 
   const existing = await prisma.user.findFirst({
     where: { id, deletedAt: null },
-    include: { role: true },
+    include: { role: true, supplierScopes: true },
   });
   if (!existing) throw new NotFoundError("ユーザーが見つかりません");
 

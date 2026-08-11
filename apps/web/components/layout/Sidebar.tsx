@@ -2,113 +2,236 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import {
+  Activity,
   AlertTriangle,
   Bell,
   BookOpenText,
   CalendarClock,
   ClipboardList,
   Database,
+  FileUp,
   FileText,
+  HelpCircle,
   LayoutDashboard,
   LogOut,
+  Megaphone,
+  Receipt,
   ScrollText,
   Settings,
   ShieldCheck,
+  MessageSquare,
   UtensilsCrossed,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { isAdminRole } from "@/components/auth/AdminOnly";
 import { BrandLogo } from "@/components/ui/brand-logo";
+import { getUnreadNotificationCount } from "@/lib/api";
 
 const APP_VERSION = "v0.1.0";
 
-type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
-type NavSection = { heading?: string; items: NavItem[] };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  permission?: string;
+  badge?: number;
+};
+type NavSection = { heading?: string; pinToBottom?: boolean; items: NavItem[] };
 
 const internalNav: NavSection[] = [
-  { items: [{ href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard }] },
   {
-    heading: "受注",
-    items: [{ href: "/orders", label: "注文", icon: ClipboardList }],
+    items: [
+      { href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard },
+      { href: "/notifications", label: "通知", icon: Bell },
+      { href: "/chat", label: "問い合わせ", icon: MessageSquare, permission: "inquiry.read" },
+    ],
   },
   {
-    heading: "情報",
+    heading: "受注",
     items: [
-      { href: "/announcements", label: "お知らせ", icon: Bell },
-      { href: "/manual", label: "操作マニュアル", icon: BookOpenText },
+      { href: "/orders", label: "注文", icon: ClipboardList, permission: "order.read" },
+      { href: "/orders/meal-counts", label: "注文食数の確認", icon: ClipboardList, permission: "order.read" },
+      { href: "/orders/rice/logs", label: "合数ログ", icon: ScrollText, permission: "order.read" },
+      {
+        href: "/dashboard/alerts",
+        label: "未入力アラート",
+        icon: AlertTriangle,
+        permission: "order_alert.read",
+      },
+    ],
+  },
+  {
+    heading: "献立・盛付",
+    items: [
+      { href: "/documents", label: "献立資料", icon: BookOpenText, permission: "document.read" },
+      {
+        href: "/plating-instructions",
+        label: "盛付指示書",
+        icon: UtensilsCrossed,
+        permission: "document.read",
+      },
+      { href: "/reports", label: "帳票出力", icon: FileText, permission: "report.read" },
     ],
   },
   {
     heading: "発注・在庫",
     items: [
-      { href: "/procurement/schedule", label: "発注スケジュール", icon: CalendarClock },
-      { href: "/procurement/imports", label: "データ取込", icon: Database },
+      {
+        href: "/procurement/imports",
+        label: "データ取込",
+        icon: FileUp,
+        permission: "procurement.import.execute",
+      },
+      {
+        href: "/procurement/imports/calendar",
+        label: "取込状況カレンダー",
+        icon: CalendarClock,
+        permission: "procurement.import.execute",
+      },
+      {
+        href: "/procurement/meal-count-sync",
+        label: "食数データの同期",
+        icon: Activity,
+        permission: "procurement.recalculate",
+      },
+      {
+        href: "/procurement/schedule",
+        label: "発注スケジュール",
+        icon: CalendarClock,
+        permission: "procurement.schedule.read",
+      },
+      {
+        href: "/procurement/stock-records",
+        label: "棚卸",
+        icon: Database,
+        permission: "procurement.stock_record.update",
+      },
+      {
+        href: "/procurement/adjustments",
+        label: "食数補正",
+        icon: ClipboardList,
+        permission: "procurement.adjustment.update",
+      },
+      {
+        href: "/procurement/calc-basis",
+        label: "計算根拠の確認",
+        icon: ScrollText,
+        permission: "procurement.schedule.read",
+      },
+      {
+        href: "/delivery-dates",
+        label: "配送日プレビュー",
+        icon: CalendarClock,
+        permission: "master.read",
+      },
     ],
   },
   {
-    heading: "帳票・配送",
+    heading: "請求",
     items: [
-      { href: "/documents", label: "献立資料", icon: BookOpenText },
-      { href: "/plating-instructions", label: "盛付指示書", icon: UtensilsCrossed },
+      { href: "/invoices", label: "請求", icon: Receipt, permission: "invoice.read" },
+      { href: "/sales-prices", label: "売価計算", icon: Receipt, permission: "sales_price.read" },
     ],
-  },
-  {
-    heading: "マスタ",
-    items: [{ href: "/masters", label: "マスタ管理", icon: Database }],
   },
   {
     heading: "管理",
     items: [
-      { href: "/dashboard/alerts", label: "未入力アラート", icon: AlertTriangle },
-      { href: "/admin/users", label: "ユーザー管理", icon: Users },
-      { href: "/admin/roles", label: "ロール設定", icon: ShieldCheck },
-      { href: "/audit-logs", label: "監査ログ", icon: ScrollText },
+      { href: "/masters", label: "マスタ管理", icon: Database, permission: "master.read" },
+      { href: "/admin/jobs", label: "処理状況", icon: Activity, permission: "admin.job.read" },
+      { href: "/admin/users", label: "ユーザー管理", icon: Users, permission: "admin.user.read" },
+      { href: "/admin/roles", label: "ロール設定", icon: ShieldCheck, permission: "admin.role.update" },
+      { href: "/audit-logs", label: "監査ログ", icon: ScrollText, permission: "admin.audit_log.read" },
       { href: "/settings", label: "設定", icon: Settings },
+    ],
+  },
+  {
+    pinToBottom: true,
+    items: [
+      { href: "/announcements", label: "お知らせ", icon: Megaphone, permission: "announcement.read" },
+      { href: "/manual", label: "操作マニュアル", icon: HelpCircle },
     ],
   },
 ];
 
 const facilityNav: NavSection[] = [
-  { items: [{ href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard }] },
   {
-    heading: "注文",
-    items: [{ href: "/orders", label: "注文", icon: ClipboardList }],
-  },
-  {
-    heading: "情報",
     items: [
-      { href: "/announcements", label: "お知らせ", icon: Bell },
-      { href: "/manual", label: "操作マニュアル", icon: BookOpenText },
+      { href: "/dashboard", label: "ダッシュボード", icon: LayoutDashboard },
+      { href: "/orders", label: "注文", icon: ClipboardList, permission: "order.read" },
+      { href: "/notifications", label: "通知", icon: Bell },
+      { href: "/chat", label: "問い合わせ", icon: MessageSquare, permission: "inquiry.read" },
     ],
   },
   {
     heading: "資料",
     items: [
-      { href: "/documents", label: "献立資料", icon: BookOpenText },
-      { href: "/plating-instructions", label: "盛付指示書", icon: FileText },
+      { href: "/documents", label: "献立資料", icon: BookOpenText, permission: "document.read" },
+      {
+        href: "/plating-instructions",
+        label: "盛付指示書",
+        icon: UtensilsCrossed,
+        permission: "document.read",
+      },
+      { href: "/invoices", label: "請求", icon: Receipt, permission: "invoice.read" },
     ],
   },
-  { items: [{ href: "/settings", label: "設定", icon: Settings }] },
+  {
+    pinToBottom: true,
+    items: [
+      { href: "/announcements", label: "お知らせ", icon: Megaphone, permission: "announcement.read" },
+      { href: "/manual", label: "操作マニュアル", icon: HelpCircle },
+      { href: "/settings", label: "設定", icon: Settings },
+    ],
+  },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const refreshUnreadCount = useCallback(async () => {
+    try {
+      const count = await getUnreadNotificationCount();
+      setUnreadCount(count);
+    } catch {
+      // ignore polling errors
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshUnreadCount();
+    const timer = setInterval(refreshUnreadCount, 60_000);
+    const onFocus = () => refreshUnreadCount();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshUnreadCount]);
 
   const sections = user.type === "internal" ? internalNav : facilityNav;
-  const showAdminUsers = user.type === "internal" && isAdminRole(user.role);
 
-  const filteredSections =
-    user.type === "internal"
-      ? sections.map((section) => ({
-          ...section,
-          items: section.items.filter((item) => item.href !== "/admin/users" || showAdminUsers),
-        }))
-      : sections;
+  const filteredSections = sections
+    .map((section) => ({
+      ...section,
+      items: section.items
+        .filter((item) => !item.permission || can(item.permission))
+        .map((item) =>
+          item.href === "/notifications" ? { ...item, badge: unreadCount } : item,
+        ),
+    }))
+    .filter((section) => section.items.length > 0);
+
+  // 現在のパスに前方一致する項目のうち、最も具体的な1件だけを選択状態にする
+  const activeHref = filteredSections
+    .flatMap((section) => section.items.map((item) => item.href))
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
 
   async function handleLogout() {
     await logout();
@@ -129,14 +252,17 @@ export function Sidebar() {
 
       <nav className="flex flex-1 flex-col gap-px overflow-y-auto px-2 py-2">
         {filteredSections.map((section, i) => (
-          <div key={section.heading ?? `section-${i}`} className={i > 0 ? "mt-3" : undefined}>
+          <div
+            key={section.heading ?? `section-${i}`}
+            className={cn(i > 0 && "mt-3", section.pinToBottom && "mt-auto pt-3")}
+          >
             {section.heading ? (
               <p className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
                 {section.heading}
               </p>
             ) : null}
             {section.items.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const active = item.href === activeHref;
               const Icon = item.icon;
               return (
                 <Link
@@ -150,7 +276,12 @@ export function Sidebar() {
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge && item.badge > 0 ? (
+                    <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      {item.badge > 99 ? "99+" : item.badge}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}

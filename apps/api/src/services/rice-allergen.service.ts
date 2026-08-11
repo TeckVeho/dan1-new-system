@@ -60,8 +60,95 @@ export async function saveRiceOrders(ctx: RequestContext, customerId: bigint, co
     return results;
   });
 
-  await recordAuditLog({ ctx, action: "update", entityType: "rice_order_bulk", entityId: customerId, after: { count: saved.length } });
+  await recordAuditLog({
+    ctx,
+    action: "update",
+    entityType: "rice_order_bulk",
+    entityId: customerId,
+    after: { count: saved.length, customerId: customerId.toString() },
+  });
   return saved;
+}
+
+export type ListRiceOrderLogsQuery = {
+  customerId?: bigint;
+  dateFrom?: Date;
+  dateTo?: Date;
+  page: number;
+  perPage: number;
+};
+
+/** 合数変更の監査ログを一覧する */
+export async function listRiceOrderLogs(query: ListRiceOrderLogsQuery) {
+  const where = {
+    entityType: { in: ["rice_order", "rice_order_bulk"] },
+    ...(query.dateFrom || query.dateTo
+      ? {
+          createdAt: {
+            ...(query.dateFrom ? { gte: query.dateFrom } : {}),
+            ...(query.dateTo ? { lte: query.dateTo } : {}),
+          },
+        }
+      : {}),
+  };
+
+  const logs = await prisma.auditLog.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    skip: (query.page - 1) * query.perPage,
+    take: query.perPage,
+    include: { user: { select: { id: true, name: true } } },
+  });
+
+  const totalCount = await prisma.auditLog.count({ where });
+
+  const customerIds = new Set<bigint>();
+  for (const log of logs) {
+    if (log.entityType === "rice_order_bulk" && log.entityId) {
+      customerIds.add(BigInt(log.entityId));
+    }
+    const after = log.after && typeof log.after === "object" ? (log.after as Record<string, unknown>) : null;
+    if (after?.customerId) customerIds.add(BigInt(String(after.customerId)));
+  }
+
+  const customers =
+    customerIds.size > 0
+      ? await prisma.customer.findMany({
+          where: { id: { in: [...customerIds] } },
+          select: { id: true, customerCode: true, name: true },
+        })
+      : [];
+  const customerMap = new Map(customers.map((c) => [c.id.toString(), c]));
+
+  const items = logs
+    .map((log) => {
+      const customerId =
+        log.entityType === "rice_order_bulk" && log.entityId
+          ? log.entityId
+          : log.after && typeof log.after === "object"
+            ? String((log.after as Record<string, unknown>).customerId ?? "")
+            : "";
+      if (query.customerId && customerId !== query.customerId.toString()) return null;
+      const customer = customerMap.get(customerId);
+      const after = log.after && typeof log.after === "object" ? (log.after as Record<string, unknown>) : null;
+      return {
+        id: log.id.toString(),
+        customerId: customer?.id.toString() ?? customerId,
+        customerCode: customer?.customerCode ?? "—",
+        customerName: customer?.name ?? "—",
+        action: log.action,
+        entityType: log.entityType,
+        summary:
+          log.entityType === "rice_order_bulk"
+            ? `合数一括更新（${String(after?.count ?? "—")}件）`
+            : "合数更新",
+        actorName: log.user?.name ?? "—",
+        createdAt: log.createdAt.toISOString(),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  return { items, totalCount };
 }
 
 export async function listAllergenOrders(customerId: bigint, dateFrom: Date, dateTo: Date, unitId?: bigint) {

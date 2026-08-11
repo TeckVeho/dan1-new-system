@@ -2,8 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import { authenticate, authorize } from "../../middleware/auth.js";
 import { resolveOptionalScopedCustomerId } from "../../lib/scope.js";
-import { sendData, sendList, buildPageMeta } from "../../lib/response.js";
-import { listOrders, patchMealOrder, exportOrdersCsv, getMealOrderById } from "../../services/orders.service.js";
+import { sendData, sendList, buildPageMeta, sendAccepted } from "../../lib/response.js";
+import { listOrders, patchMealOrder, exportOrdersCsv, getMealOrderById, countOrders } from "../../services/orders.service.js";
+import { createAndRunJob } from "../../services/jobs.service.js";
 import { paramId } from "../../lib/http.js";
 import { ScopeViolationError } from "../../lib/errors.js";
 
@@ -25,6 +26,63 @@ const listQuerySchema = z.object({
 });
 
 const exportQuerySchema = listQuerySchema.omit({ page: true, perPage: true });
+const ASYNC_EXPORT_THRESHOLD = 1000;
+
+orderListRouter.post("/export", authorize("order.export"), async (req, res, next) => {
+  try {
+    const query = exportQuerySchema.parse(req.body);
+    const customerId = resolveOptionalScopedCustomerId(req.context!, query.customerId);
+    const totalCount = await countOrders({
+      customerId,
+      search: query.search,
+      serviceDateFrom: query.serviceDateFrom ? new Date(query.serviceDateFrom) : undefined,
+      serviceDateTo: query.serviceDateTo ? new Date(query.serviceDateTo) : undefined,
+      unitId: query.unitId ? BigInt(query.unitId) : undefined,
+      mealTypeId: query.mealTypeId ? BigInt(query.mealTypeId) : undefined,
+      menuKindId: query.menuKindId ? BigInt(query.menuKindId) : undefined,
+      status: query.status,
+    });
+
+    if (totalCount <= ASYNC_EXPORT_THRESHOLD) {
+      const csv = await exportOrdersCsv({
+        customerId,
+        search: query.search,
+        serviceDateFrom: query.serviceDateFrom ? new Date(query.serviceDateFrom) : undefined,
+        serviceDateTo: query.serviceDateTo ? new Date(query.serviceDateTo) : undefined,
+        unitId: query.unitId ? BigInt(query.unitId) : undefined,
+        mealTypeId: query.mealTypeId ? BigInt(query.mealTypeId) : undefined,
+        menuKindId: query.menuKindId ? BigInt(query.menuKindId) : undefined,
+        status: query.status,
+      });
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=orders.csv");
+      res.send(`\uFEFF${csv}`);
+      return;
+    }
+
+    const job = await createAndRunJob({
+      jobType: "export.spreadsheet",
+      createdBy: req.context!.userId,
+      params: {
+        exportType: "orders_csv",
+        format: "csv",
+        query: {
+          customerId: customerId?.toString(),
+          search: query.search,
+          serviceDateFrom: query.serviceDateFrom,
+          serviceDateTo: query.serviceDateTo,
+          unitId: query.unitId,
+          mealTypeId: query.mealTypeId,
+          menuKindId: query.menuKindId,
+          status: query.status,
+        },
+      },
+    });
+    sendAccepted(res, { jobId: job.id, status: job.status, statusUrl: `/api/v1/jobs/${job.id}` });
+  } catch (error) {
+    next(error);
+  }
+});
 
 orderListRouter.get("/export", authorize("order.export"), async (req, res, next) => {
   try {

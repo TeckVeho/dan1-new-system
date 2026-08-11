@@ -12,11 +12,13 @@ jobsRouter.use(authenticate);
 const listQuerySchema = z.object({
   status: z.string().optional(),
   jobType: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   perPage: z.coerce.number().int().min(1).max(200).default(20),
 });
 
-jobsRouter.get("/", async (req, res, next) => {
+jobsRouter.get("/", authorize("admin.job.read"), async (req, res, next) => {
   try {
     const query = listQuerySchema.parse(req.query);
     const { items, totalCount } = await listJobs(query);
@@ -26,7 +28,7 @@ jobsRouter.get("/", async (req, res, next) => {
   }
 });
 
-jobsRouter.get("/:id", async (req, res, next) => {
+jobsRouter.get("/:id", authorize("admin.job.read"), async (req, res, next) => {
   try {
     const job = await getJob(BigInt(paramId(req.params.id)));
     sendData(res, job);

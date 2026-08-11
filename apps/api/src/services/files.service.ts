@@ -171,3 +171,15 @@ export async function readDownloadFile(token: string) {
     mimeType: pending.mimeType,
   };
 }
+
+export async function readFileContent(id: bigint) {
+  const file = await getFile(id);
+  const filePath = path.join(UPLOAD_DIR, sanitizeStorageKey(file.storageKey));
+  const body = await fs.readFile(filePath);
+  return {
+    body,
+    originalName: file.originalName,
+    mimeType: file.mimeType,
+    sizeBytes: Number(file.sizeBytes),
+  };
+}

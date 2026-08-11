@@ -71,11 +71,18 @@ describe("permission resolution", () => {
     expect(hasPermission(permissions, "anything.at.all")).toBe(true);
   });
 
+  it("grants internal_admin role and job management permissions", () => {
+    const permissions = expandPermissions("internal_admin", []);
+    expect(hasPermission(permissions, "admin.role.update")).toBe(true);
+    expect(hasPermission(permissions, "admin.job.read")).toBe(true);
+  });
+
   it("grants internal_staff order permissions but not admin.role.update", () => {
     const permissions = expandPermissions("internal_staff", []);
     expect(hasPermission(permissions, "order.read")).toBe(true);
     expect(hasPermission(permissions, "order.create")).toBe(true);
     expect(hasPermission(permissions, "admin.role.update")).toBe(false);
+    expect(hasPermission(permissions, "admin.job.read")).toBe(true);
   });
 
   it("scopes facility_staff to its own order permissions only", () => {

@@ -419,6 +419,37 @@ export async function listOrders(query: OrderListQuery) {
   return { items, totalCount };
 }
 
+export async function countOrders(query: Omit<OrderListQuery, "page" | "perPage">): Promise<number> {
+  const customerFilter = query.search
+    ? {
+        OR: [
+          { customerCode: { contains: query.search } },
+          { name: { contains: query.search } },
+          { shortName: { contains: query.search } },
+        ],
+      }
+    : undefined;
+
+  const where = {
+    ...(query.customerId ? { customerId: query.customerId } : {}),
+    ...(customerFilter ? { customer: customerFilter } : {}),
+    ...(query.unitId ? { unitId: query.unitId } : {}),
+    ...(query.mealTypeId ? { mealTypeId: query.mealTypeId } : {}),
+    ...(query.menuKindId ? { menuKindId: query.menuKindId } : {}),
+    ...(query.status ? { status: query.status } : { status: { not: "draft" as MealOrderStatus } }),
+    ...(query.serviceDateFrom || query.serviceDateTo
+      ? {
+          serviceDate: {
+            ...(query.serviceDateFrom ? { gte: query.serviceDateFrom } : {}),
+            ...(query.serviceDateTo ? { lte: query.serviceDateTo } : {}),
+          },
+        }
+      : {}),
+  };
+
+  return prisma.mealOrder.count({ where });
+}
+
 export async function exportOrdersCsv(query: Omit<OrderListQuery, "page" | "perPage">): Promise<string> {
   const { items } = await listOrders({ ...query, page: 1, perPage: 100000 });
   const header = ["ユニット", "喫食日", "食事区分", "献立種類", "食数", "ステータス"];
@@ -624,6 +655,50 @@ export async function getOrderSummary(query: OrderSummaryQuery) {
     groupBy: query.groupBy,
     rows: [...map.entries()].map(([month, total]) => ({ month, total })),
   };
+}
+
+export type MealCountConfirmationQuery = {
+  serviceDateFrom: Date;
+  serviceDateTo: Date;
+  customerId?: bigint;
+};
+
+/** 製造へ渡す食数の確認用一覧 */
+export async function getMealCountConfirmation(query: MealCountConfirmationQuery) {
+  const orders = await prisma.mealOrder.findMany({
+    where: {
+      ...(query.customerId ? { customerId: query.customerId } : {}),
+      serviceDate: { gte: query.serviceDateFrom, lte: query.serviceDateTo },
+      status: { in: ["provisional", "confirmed"] },
+    },
+    include: {
+      customer: { select: { id: true, customerCode: true, name: true } },
+      unit: { select: { id: true, name: true } },
+      mealType: { select: { id: true, name: true } },
+      menuKind: { select: { id: true, name: true } },
+      orderType: { select: { id: true, name: true } },
+    },
+    orderBy: [{ serviceDate: "asc" }, { customerId: "asc" }, { unitId: "asc" }],
+  });
+
+  const rows = orders.map((order) => ({
+    id: order.id.toString(),
+    serviceDate: order.serviceDate.toISOString().slice(0, 10),
+    customerId: order.customerId.toString(),
+    customerCode: order.customer.customerCode,
+    customerName: order.customer.name,
+    unitId: order.unitId.toString(),
+    unitName: order.unit.name,
+    mealType: order.mealType.name,
+    menuKind: order.menuKind.name,
+    orderType: order.orderType.name,
+    quantity: order.quantity,
+    status: order.status,
+  }));
+
+  const totalQuantity = rows.reduce((sum, row) => sum + row.quantity, 0);
+
+  return { rows, totalQuantity, customerCount: new Set(rows.map((r) => r.customerId)).size };
 }
 
 export type UpdateOrderAlertStatusInput = {

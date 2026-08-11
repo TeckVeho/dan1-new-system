@@ -502,6 +502,34 @@ export async function seedDemoData(prisma: PrismaClient, refs: MasterRefs) {
     });
   }
 
+  // ── 単価・税率マスタ ──────────────────────────────────────────────────────
+
+  await prisma.taxRate.deleteMany({});
+  await prisma.taxRate.create({
+    data: { rate: new Prisma.Decimal("10.00"), validFrom: new Date("2019-10-01") },
+  });
+
+  for (const [menuKindId, price] of [
+    [refs.menuKinds.normal.id, "480.00"],
+    [refs.menuKinds.thin.id, "520.00"],
+  ] as const) {
+    const existing = await prisma.unitPrice.findFirst({
+      where: { customerId: null, menuKindId, validFrom: new Date("2020-01-01") },
+    });
+    if (existing) {
+      await prisma.unitPrice.update({ where: { id: existing.id }, data: { price: new Prisma.Decimal(price) } });
+    } else {
+      await prisma.unitPrice.create({
+        data: {
+          customerId: null,
+          menuKindId,
+          price: new Prisma.Decimal(price),
+          validFrom: new Date("2020-01-01"),
+        },
+      });
+    }
+  }
+
   // ── 請求（下書き） ──────────────────────────────────────────────────────
 
   const invoice = await prisma.invoice.upsert({

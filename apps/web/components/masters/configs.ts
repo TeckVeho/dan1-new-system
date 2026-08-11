@@ -176,6 +176,7 @@ export const STOCK_ITEM_CONFIG: SimpleMasterConfig = {
     { key: "name", label: "商品名", required: true, colSpan: 2 },
     { key: "category", label: "カテゴリ" },
     { key: "unit", label: "単位", required: true },
+    { key: "isRawMaterial", label: "原体商品", type: "checkbox" },
     { key: "sortOrder", label: "表示順", type: "number" },
     { key: "isActive", label: "有効", type: "checkbox" },
   ],
@@ -208,6 +209,50 @@ export const RICE_TYPE_CONFIG: SimpleMasterConfig = {
   title: "混ぜご飯・合数種別",
   description: "合数指定で選択するご飯の種類マスタ",
   fields: CODE_NAME_FIELDS,
+};
+
+export const UNIT_PRICE_CONFIG: SimpleMasterConfig = {
+  resource: "unit-prices",
+  title: "単価マスタ",
+  description: "献立種類ごとの単価。施設未指定は共通単価として適用されます",
+  fields: [
+    {
+      key: "customerId",
+      label: "施設",
+      type: "select",
+      resourceRef: "customers",
+      optionValueKey: "id",
+      optionLabelKey: "name",
+      placeholder: "未選択＝共通単価",
+    },
+    {
+      key: "menuKindId",
+      label: "献立種類",
+      type: "select",
+      required: true,
+      resourceRef: "menu-kinds",
+      optionValueKey: "id",
+      optionLabelKey: "name",
+    },
+    { key: "price", label: "単価（円）", type: "number", required: true },
+    { key: "validFrom", label: "適用開始日", type: "date", required: true },
+    { key: "validTo", label: "適用終了日", type: "date" },
+  ],
+  listColumns: ["menuKindId", "customerId", "price", "validFrom", "validTo"],
+  softDelete: false,
+};
+
+export const TAX_RATE_CONFIG: SimpleMasterConfig = {
+  resource: "tax-rates",
+  title: "税率マスタ",
+  description: "請求に適用する消費税率の履歴管理",
+  fields: [
+    { key: "rate", label: "税率（%）", type: "number", required: true },
+    { key: "validFrom", label: "適用開始日", type: "date", required: true },
+    { key: "validTo", label: "適用終了日", type: "date" },
+  ],
+  listColumns: ["rate", "validFrom", "validTo"],
+  softDelete: false,
 };
 
 export const LONG_HOLIDAY_CONFIG: SimpleMasterConfig = {

@@ -1,50 +1,87 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle,
   ArrowRight,
-  CalendarClock,
-  ClipboardList,
-  Database,
-  FileText,
-  ScrollText,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Alert } from "@/components/ui/alert";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { getAuditLogs, getOrderWindows, getProcurementImports } from "@/lib/api";
-import { cn, formatDateTime, toWeekStart } from "@/lib/utils";
+import {
+  getAuditLogs,
+  getJobs,
+  getOrderWindows,
+  getProcurementImports,
+  getUnenteredFacilities,
+  getWeeklyOrders,
+} from "@/lib/api";
+import type { WeeklyOrdersResponse } from "@/lib/types";
+import { addDays, cn, formatDateTime, toWeekStart } from "@/lib/utils";
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  unit,
+function countEnteredDays(weekly: WeeklyOrdersResponse) {
+  return weekly.dates.filter((date) =>
+    weekly.rows.some((row) =>
+      row.cells.some((cell) => cell.date === date.date && (cell.quantity ?? 0) > 0),
+    ),
+  ).length;
+}
+
+function QuickActionCard({
   href,
+  title,
+  description,
+  value,
+  valueUnit,
+  illustration,
+  tone = "primary",
 }: {
-  icon: typeof ClipboardList;
-  label: string;
-  value: string;
-  unit?: string;
-  href?: string;
+  href: string;
+  title: string;
+  description: string;
+  value?: string;
+  valueUnit?: string;
+  illustration: ReactNode;
+  tone?: "primary" | "accent";
 }) {
-  const content = (
-    <div className="flex items-start gap-3 rounded-lg border border-border bg-white px-4 py-3 transition-colors hover:bg-bg">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="h-4 w-4" aria-hidden />
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group relative overflow-hidden rounded-xl border border-border bg-white p-4 transition-all duration-200",
+        "hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_10px_28px_-16px_rgb(var(--color-primary)/0.45)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+      )}
+    >
+      <div
+        className={cn(
+          "pointer-events-none absolute -right-6 -top-8 h-28 w-28 rounded-full blur-2xl transition-opacity duration-200",
+          tone === "accent" ? "bg-accent/20 group-hover:bg-accent/30" : "bg-primary/15 group-hover:bg-primary/25",
+        )}
+      />
+      <div className="relative flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold leading-snug text-text">{title}</p>
+          {value ? (
+            <p className="mt-1 text-xl font-semibold leading-tight text-text">
+              {value}
+              {valueUnit ? (
+                <span className="ml-0.5 text-[13px] font-normal text-muted">{valueUnit}</span>
+              ) : null}
+            </p>
+          ) : null}
+          <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>
+          <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary transition-transform duration-200 group-hover:translate-x-0.5">
+            開く
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </span>
+        </div>
+        <div className="h-16 w-[5.25rem] shrink-0 transition-transform duration-200 group-hover:scale-105 group-hover:-rotate-1">
+          {illustration}
+        </div>
       </div>
-      <div className="min-w-0">
-        <p className="text-xs text-muted">{label}</p>
-        <p className="mt-1 text-xl font-semibold text-text">
-          {value}
-          {unit ? <span className="ml-0.5 text-[13px] font-normal text-muted">{unit}</span> : null}
-        </p>
-      </div>
-    </div>
+    </Link>
   );
-  return href ? <Link href={href}>{content}</Link> : content;
 }
 
 function IllustrationSchedule() {
@@ -150,67 +187,68 @@ function IllustrationEdit() {
   );
 }
 
-function QuickActionCard({
-  href,
-  title,
-  description,
-  illustration,
-  tone = "primary",
-}: {
-  href: string;
-  title: string;
-  description: string;
-  illustration: ReactNode;
-  tone?: "primary" | "accent";
-}) {
+function IllustrationAlert() {
   return (
-    <Link
-      href={href}
-      className={cn(
-        "group relative overflow-hidden rounded-xl border border-border bg-white p-4 transition-all duration-200",
-        "hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_10px_28px_-16px_rgb(var(--color-primary)/0.45)]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
-      )}
-    >
-      <div
-        className={cn(
-          "pointer-events-none absolute -right-6 -top-8 h-28 w-28 rounded-full blur-2xl transition-opacity duration-200",
-          tone === "accent" ? "bg-accent/20 group-hover:bg-accent/30" : "bg-primary/15 group-hover:bg-primary/25",
-        )}
+    <svg viewBox="0 0 96 72" className="h-full w-full" aria-hidden>
+      <rect x="10" y="14" width="46" height="46" rx="8" fill="rgb(var(--color-primary-light))" />
+      <rect x="18" y="24" width="26" height="3.5" rx="1.75" fill="rgb(var(--color-primary) / 0.3)" />
+      <rect x="18" y="32" width="20" height="3.5" rx="1.75" fill="rgb(var(--color-primary) / 0.2)" />
+      <rect x="18" y="40" width="24" height="3.5" rx="1.75" fill="rgb(var(--color-primary) / 0.2)" />
+      <path d="M68 26l16 28H52l16-28z" fill="rgb(var(--color-accent))" />
+      <path d="M68 36v8" stroke="white" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="68" cy="49" r="1.9" fill="white" />
+    </svg>
+  );
+}
+
+function IllustrationBell() {
+  return (
+    <svg viewBox="0 0 96 72" className="h-full w-full" aria-hidden>
+      <circle cx="46" cy="38" r="24" fill="rgb(var(--color-primary-light))" />
+      <path
+        d="M46 18a11 11 0 00-11 11v9l-4 6h30l-4-6v-9a11 11 0 00-11-11z"
+        fill="rgb(var(--color-primary) / 0.5)"
       />
-      <div className="relative flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-semibold leading-snug text-text">{title}</p>
-          <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>
-          <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-primary transition-transform duration-200 group-hover:translate-x-0.5">
-            開く
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-          </span>
-        </div>
-        <div className="h-16 w-[5.25rem] shrink-0 transition-transform duration-200 group-hover:scale-105 group-hover:-rotate-1">
-          {illustration}
-        </div>
-      </div>
-    </Link>
+      <path d="M41 47a5 5 0 0010 0" fill="rgb(var(--color-primary) / 0.7)" />
+      <circle cx="70" cy="22" r="9" fill="rgb(var(--color-accent))" />
+      <circle cx="70" cy="22" r="3" fill="white" />
+    </svg>
+  );
+}
+
+function IllustrationDocument() {
+  return (
+    <svg viewBox="0 0 96 72" className="h-full w-full" aria-hidden>
+      <rect x="22" y="10" width="40" height="52" rx="6" fill="white" stroke="rgb(var(--color-border))" />
+      <rect x="30" y="20" width="24" height="3.5" rx="1.75" fill="rgb(var(--color-primary) / 0.35)" />
+      <rect x="30" y="28" width="18" height="3.5" rx="1.75" fill="rgb(var(--color-primary) / 0.2)" />
+      <rect x="30" y="36" width="22" height="3.5" rx="1.75" fill="rgb(var(--color-primary) / 0.2)" />
+      <rect x="30" y="44" width="14" height="3.5" rx="1.75" fill="rgb(var(--color-primary) / 0.2)" />
+      <circle cx="68" cy="44" r="15" fill="rgb(var(--color-accent-light))" />
+      <circle cx="66" cy="42" r="7" fill="none" stroke="rgb(var(--color-accent))" strokeWidth="3" />
+      <path d="M71.5 47.5L78 54" stroke="rgb(var(--color-accent))" strokeWidth="3" strokeLinecap="round" />
+    </svg>
   );
 }
 
 function FacilityDashboard() {
   const [deadline, setDeadline] = useState<{ deadlineAt: string; remainingSeconds: number } | null>(null);
+  const [weeklyOrders, setWeeklyOrders] = useState<WeeklyOrdersResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const weekStart = useMemo(() => toWeekStart(new Date()), []);
+  const enteredDays = weeklyOrders ? countEnteredDays(weeklyOrders) : null;
+
   useEffect(() => {
-    const weekStart = toWeekStart(new Date());
-    const to = new Date(weekStart);
-    to.setDate(to.getDate() + 6);
-    getOrderWindows({
-      orderType: "provisional",
-      from: weekStart,
-      to: to.toISOString().slice(0, 10),
-    })
-      .then((res) => setDeadline(res))
-      .catch((e: Error) => setError(e.message));
-  }, []);
+    Promise.all([
+      getOrderWindows({
+        orderType: "provisional",
+        from: weekStart,
+        to: addDays(weekStart, 6),
+      }).then((res) => setDeadline(res)),
+      getWeeklyOrders({ weekStart }).then((res) => setWeeklyOrders(res)),
+    ]).catch((e: Error) => setError(e.message));
+  }, [weekStart]);
 
   return (
     <div>
@@ -223,15 +261,60 @@ function FacilityDashboard() {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard
-          icon={CalendarClock}
-          label="次回締切"
-          value={deadline ? formatDateTime(deadline.deadlineAt) : "—"}
+        <QuickActionCard
           href="/orders?tab=entry"
+          title="次回締切"
+          value={deadline ? formatDateTime(deadline.deadlineAt) : "—"}
+          description="週間注文の入力画面へ"
+          illustration={<IllustrationSchedule />}
         />
-        <StatCard icon={ClipboardList} label="今週の注文" value="未確認" href="/orders/weekly" />
-        <StatCard icon={FileText} label="最新の献立資料" value="—" href="/documents" />
+        <QuickActionCard
+          href="/orders/weekly"
+          title="今週の注文"
+          value={enteredDays !== null ? `${enteredDays}/${weeklyOrders?.dates.length ?? 0}` : "—"}
+          valueUnit="日入力済み"
+          description="今週の入力状況を確認"
+          illustration={<IllustrationOrder />}
+          tone="accent"
+        />
+        <QuickActionCard
+          href="/documents"
+          title="最新の献立資料"
+          value="—"
+          description="献立・配膳資料の閲覧"
+          illustration={<IllustrationDocument />}
+        />
       </div>
+
+      <section className="mt-6">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-semibold text-text">情報を確認する</h2>
+            <p className="mt-0.5 text-[12px] text-muted">状況やお知らせを確認できます</p>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <QuickActionCard
+            href="/orders/weekly"
+            title="今週の注文状況を確認する"
+            description="曜日ごとの入力状況を一覧"
+            illustration={<IllustrationSchedule />}
+          />
+          <QuickActionCard
+            href="/announcements"
+            title="お知らせを確認する"
+            description="施設向けのお知らせ一覧"
+            illustration={<IllustrationBell />}
+            tone="accent"
+          />
+          <QuickActionCard
+            href="/documents"
+            title="献立資料を見る"
+            description="献立・配膳資料の閲覧"
+            illustration={<IllustrationDocument />}
+          />
+        </div>
+      </section>
 
       <section className="mt-6">
         <div className="mb-3 flex items-end justify-between gap-3">
@@ -263,14 +346,25 @@ function FacilityDashboard() {
 function InternalDashboard() {
   const [importCount, setImportCount] = useState<number | null>(null);
   const [auditCount, setAuditCount] = useState<number | null>(null);
+  const [runningJobCount, setRunningJobCount] = useState<number | null>(null);
+  const [alertCount, setAlertCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const weekStart = useMemo(() => toWeekStart(new Date()), []);
 
   useEffect(() => {
     Promise.all([
       getProcurementImports({ page: 1, pageSize: 1 }).then((r) => setImportCount(r.total)),
       getAuditLogs({ page: 1, pageSize: 1 }).then((r) => setAuditCount(r.total)),
+      getJobs({ status: "running", page: 1, perPage: 1 })
+        .then((r) => setRunningJobCount(r.total))
+        .catch(() => setRunningJobCount(null)),
+      getUnenteredFacilities({
+        serviceDateFrom: weekStart,
+        serviceDateTo: addDays(weekStart, 6),
+      }).then((r) => setAlertCount(r.alerts.length)),
     ]).catch((e: Error) => setError(e.message));
-  }, []);
+  }, [weekStart]);
 
   return (
     <div>
@@ -283,29 +377,78 @@ function InternalDashboard() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={AlertTriangle} label="未入力施設アラート" value="—" href="/dashboard/alerts" />
-        <StatCard
-          icon={CalendarClock}
-          label="発注スケジュール"
-          value="要確認"
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <QuickActionCard
+          href="/dashboard/alerts"
+          title="未入力施設アラート"
+          value={alertCount !== null ? String(alertCount) : "—"}
+          valueUnit="件"
+          description="今週の未入力施設を確認"
+          illustration={<IllustrationAlert />}
+        />
+        <QuickActionCard
+          href="/admin/jobs?status=running"
+          title="実行中の処理"
+          value={runningJobCount !== null ? String(runningJobCount) : "—"}
+          valueUnit="件"
+          description="バックグラウンド処理の状況"
+          illustration={<IllustrationImport />}
+          tone="accent"
+        />
+        <QuickActionCard
           href="/procurement/schedule"
+          title="発注スケジュール"
+          value="要確認"
+          description="締切と発注計画を確認"
+          illustration={<IllustrationSchedule />}
         />
-        <StatCard
-          icon={Database}
-          label="データ取込履歴"
-          value={importCount !== null ? String(importCount) : "—"}
-          unit="件"
+        <QuickActionCard
           href="/procurement/imports"
+          title="データ取込履歴"
+          value={importCount !== null ? String(importCount) : "—"}
+          valueUnit="件"
+          description="取込結果とエラー内容を確認"
+          illustration={<IllustrationDocument />}
         />
-        <StatCard
-          icon={ScrollText}
-          label="監査ログ"
-          value={auditCount !== null ? String(auditCount) : "—"}
-          unit="件"
+        <QuickActionCard
           href="/audit-logs"
+          title="監査ログ"
+          value={auditCount !== null ? String(auditCount) : "—"}
+          valueUnit="件"
+          description="操作履歴の検索・確認"
+          illustration={<IllustrationEdit />}
         />
       </div>
+
+      <section className="mt-6">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-semibold text-text">情報を確認する</h2>
+            <p className="mt-0.5 text-[12px] text-muted">対応が必要な情報を確認できます</p>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <QuickActionCard
+            href="/dashboard/alerts"
+            title="未入力施設を確認する"
+            description="食数・合数が未入力の施設を一覧"
+            illustration={<IllustrationAlert />}
+          />
+          <QuickActionCard
+            href="/notifications"
+            title="通知を確認する"
+            description="締切リマインドや処理完了のお知らせ"
+            illustration={<IllustrationBell />}
+            tone="accent"
+          />
+          <QuickActionCard
+            href="/procurement/imports"
+            title="取込履歴を確認する"
+            description="取込結果とエラー内容を確認"
+            illustration={<IllustrationDocument />}
+          />
+        </div>
+      </section>
 
       <section className="mt-6">
         <div className="mb-3 flex items-end justify-between gap-3">

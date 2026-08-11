@@ -6,6 +6,19 @@ import type {
   Customer,
   DeadlineException,
   DeadlineRule,
+  DeliveryDatePreview,
+  ImportCalendarResponse,
+  InquiryThreadDetail,
+  InquiryThreadItem,
+  MealCountAdjustmentItem,
+  MealCountConfirmResponse,
+  MealCountSyncHistoryItem,
+  MealType,
+  ReportCatalogItem,
+  BagDesignItem,
+  PickingDestinationItem,
+  ScheduleCalcBasis,
+  SalesPricePreview,
   DocumentItem,
   DocumentDetail,
   DocumentOutputMatrix,
@@ -13,10 +26,18 @@ import type {
   FacilityAdminUser,
   ImportRecord,
   InternalAdminUser,
+  InvoiceDetail,
+  InvoiceItem,
+  InvoiceClosePreview,
+  InvoiceCorrectionHistory,
+  InvoiceLineInput,
+  JobDetail,
+  JobItem,
   MenuTemplate,
   MenuTemplateDuplicateGroup,
   AnnouncementFeedItem,
   NewYearOrdersResponse,
+  NotificationItem,
   OrderChangeLogItem,
   OrderListItem,
   OrderSummaryResponse,
@@ -26,7 +47,10 @@ import type {
   PlatingInstruction,
   ScheduleCell,
   ScheduleItem,
+  RiceOrderLogItem,
   ScheduleResponse,
+  StockRecordItem,
+  UnacceptableOrderAlert,
   SwallowCategory,
   OrderEntryResponse,
   OrderEntrySaveResult,
@@ -437,6 +461,8 @@ export type MasterResource =
   | "order-types"
   | "rice-types"
   | "long-holidays"
+  | "unit-prices"
+  | "tax-rates"
   | "units"
   | "announcements";
 
@@ -627,6 +653,9 @@ export const getRiceTypes = (params?: { page?: number; pageSize?: number; search
 
 export const getCustomers = (params?: { page?: number; pageSize?: number; search?: string }) =>
   getMasterList<Customer>("customers", params);
+
+export const getMealTypes = (params?: { page?: number; pageSize?: number; search?: string }) =>
+  getMasterList<MealType>("meal-types", params);
 
 export const getDeadlineRules = (params?: { page?: number; pageSize?: number; search?: string }) =>
   getMasterList<DeadlineRule>("deadline-rules", params);
@@ -990,6 +1019,7 @@ export async function getProcurementSchedule(params: {
       deliveryTo: params.deliveryDateTo,
       search: params.itemQuery,
       category: params.categoryId,
+      shortageOnly: params.shortageOnly,
       page: params.page,
       pageSize: params.perPage,
     })}`,
@@ -1035,17 +1065,168 @@ export async function getProcurementImports(params: {
   );
 }
 
+export async function exportProcurementSchedule(payload: {
+  supplierId: string;
+  deliveryFrom: string;
+  deliveryTo: string;
+  search?: string;
+  category?: string;
+  shortageOnly?: boolean;
+  format?: "xlsx" | "csv";
+}): Promise<{ jobId: string; status: string; statusUrl: string }> {
+  return request(`/procurement/schedules/export`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function postProcurementImport(payload: {
-  importType: string;
+  fileType: string;
   supplierId: string;
   fileId: string;
-  targetDateFrom: string;
-  targetDateTo: string;
+  targetDateFrom?: string;
+  targetDateTo?: string;
 }): Promise<{ importId: string; jobId: string; status: string }> {
   return request<{ importId: string; jobId: string; status: string }>(`/procurement/imports`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function getImportCalendar(params: {
+  month: string;
+  supplierId?: string;
+}): Promise<ImportCalendarResponse> {
+  return request<ImportCalendarResponse>(`/procurement/imports/calendar${qs(params)}`);
+}
+
+export async function getStockRecords(params: {
+  stockItemId?: string;
+  recordDateFrom?: string;
+  recordDateTo?: string;
+  page?: number;
+  perPage?: number;
+}): Promise<Paginated<StockRecordItem>> {
+  return requestList<StockRecordItem>(`/procurement/stock-records${qs(params)}`);
+}
+
+export async function createStockRecord(payload: {
+  stockItemId: string;
+  recordDate: string;
+  quantity: number;
+  recordType?: "inventory" | "adjustment";
+}): Promise<StockRecordItem> {
+  return request<StockRecordItem>(`/procurement/stock-records`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getMealCountAdjustments(params: {
+  customerId?: string;
+  serviceDateFrom?: string;
+  serviceDateTo?: string;
+  page?: number;
+  perPage?: number;
+}): Promise<Paginated<MealCountAdjustmentItem>> {
+  return requestList<MealCountAdjustmentItem>(`/procurement/adjustments${qs(params)}`);
+}
+
+export async function putMealCountAdjustments(payload: {
+  items: Array<{
+    customerId: string;
+    serviceDate: string;
+    mealTypeId: string;
+    adjustMeals: number;
+    reason?: string;
+    version?: number;
+  }>;
+}): Promise<{ saved: number; items: MealCountAdjustmentItem[] }> {
+  return request(`/procurement/adjustments`, { method: "PUT", body: JSON.stringify(payload) });
+}
+
+export async function getInquiryThreads(params?: {
+  customerId?: string;
+  status?: "open" | "closed";
+  page?: number;
+  perPage?: number;
+}): Promise<Paginated<InquiryThreadItem>> {
+  return requestList<InquiryThreadItem>(`/inquiries/threads${qs(params ?? {})}`);
+}
+
+export async function createInquiryThread(payload: {
+  customerId?: string;
+  subject?: string;
+  body: string;
+}): Promise<InquiryThreadDetail> {
+  return request<InquiryThreadDetail>(`/inquiries/threads`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getInquiryThread(id: string): Promise<InquiryThreadDetail> {
+  return request<InquiryThreadDetail>(`/inquiries/threads/${id}`);
+}
+
+export async function postInquiryMessage(threadId: string, body: string) {
+  return request(`/inquiries/threads/${threadId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export async function patchInquiryThreadStatus(threadId: string, status: "open" | "closed") {
+  return request(`/inquiries/threads/${threadId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function markInquiryThreadRead(threadId: string) {
+  return request(`/inquiries/threads/${threadId}/read`, { method: "PATCH" });
+}
+
+export async function postMealCountSync(payload: {
+  dateFrom: string;
+  dateTo: string;
+}): Promise<{ jobId: string; status: string; statusUrl: string }> {
+  return request(`/procurement/meal-count-sync`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getMealCountSyncHistory(params?: {
+  page?: number;
+  perPage?: number;
+}): Promise<Paginated<MealCountSyncHistoryItem>> {
+  return requestList<MealCountSyncHistoryItem>(`/procurement/meal-count-sync/history${qs(params ?? {})}`);
+}
+
+export async function getRiceOrderLogs(params: {
+  customerId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  perPage?: number;
+}): Promise<Paginated<RiceOrderLogItem>> {
+  return requestList<RiceOrderLogItem>(`/orders/rice/logs${qs(params)}`);
+}
+
+export async function getMealCountConfirmation(params: {
+  customerId?: string;
+  serviceDateFrom: string;
+  serviceDateTo: string;
+}): Promise<MealCountConfirmResponse> {
+  return request<MealCountConfirmResponse>(`/orders/meal-counts${qs(params)}`);
+}
+
+export async function getUnacceptableOrderAlerts(params: {
+  serviceDateFrom: string;
+  serviceDateTo: string;
+}): Promise<{ alerts: UnacceptableOrderAlert[]; count: number }> {
+  return request(`/orders/unacceptable-alerts${qs(params)}`);
 }
 
 // --- 管理 ---
@@ -1193,5 +1374,232 @@ export async function updateRolePermissions(
   return request(`/admin/roles/${roleId}/permissions`, {
     method: "PUT",
     body: JSON.stringify({ permissionCodes }),
+  });
+}
+
+export async function getNotifications(params?: {
+  page?: number;
+  perPage?: number;
+  isRead?: boolean;
+  category?: string;
+}): Promise<Paginated<NotificationItem>> {
+  return requestList<NotificationItem>(`/notifications${qs(params ?? {})}`);
+}
+
+export async function getUnreadNotificationCount(): Promise<number> {
+  const body = await request<{ count: number }>(`/notifications/unread-count`);
+  return body.count;
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await request(`/notifications/${id}/read`, { method: "PATCH" });
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await request(`/notifications/read-all`, { method: "POST", body: "{}" });
+}
+
+export async function getJobs(params?: {
+  page?: number;
+  perPage?: number;
+  status?: string;
+  jobType?: string;
+  from?: string;
+  to?: string;
+}): Promise<Paginated<JobItem>> {
+  return requestList<JobItem>(`/jobs${qs(params ?? {})}`);
+}
+
+export async function getJob(id: string): Promise<JobDetail> {
+  return request<JobDetail>(`/jobs/${id}`);
+}
+
+export async function cancelJob(id: string): Promise<JobItem> {
+  return request<JobItem>(`/jobs/${id}/cancel`, { method: "POST", body: "{}" });
+}
+
+// --- 請求 ---
+
+export async function getInvoices(params?: {
+  page?: number;
+  perPage?: number;
+  invoiceMonth?: string;
+  customerId?: string;
+  status?: string;
+}): Promise<Paginated<InvoiceItem>> {
+  return requestList<InvoiceItem>(`/invoices${qs(params ?? {})}`);
+}
+
+export async function getInvoice(id: string): Promise<InvoiceDetail> {
+  return request<InvoiceDetail>(`/invoices/${id}`);
+}
+
+export async function previewInvoices(payload: {
+  invoiceMonth: string;
+  customerIds?: string[];
+}): Promise<InvoiceClosePreview> {
+  return request<InvoiceClosePreview>(`/invoices/preview`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getInvoiceCorrections(id: string): Promise<InvoiceCorrectionHistory> {
+  return request<InvoiceCorrectionHistory>(`/invoices/${id}/corrections`);
+}
+
+export async function closeInvoices(payload: {
+  invoiceMonth: string;
+  customerIds?: string[];
+}): Promise<{ invoiceMonth: string; createdCount: number; invoiceIds: string[] }> {
+  return request(`/invoices/close`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function issueInvoice(id: string): Promise<InvoiceDetail> {
+  return request<InvoiceDetail>(`/invoices/${id}/issue`, { method: "POST", body: "{}" });
+}
+
+export async function correctInvoice(
+  id: string,
+  payload: { lines: InvoiceLineInput[]; reason?: string },
+): Promise<InvoiceDetail> {
+  return request<InvoiceDetail>(`/invoices/${id}/correct`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteDraftInvoice(id: string): Promise<void> {
+  await request(`/invoices/${id}`, { method: "DELETE" });
+}
+
+export async function getInvoiceDownloadUrl(id: string): Promise<{
+  downloadUrl: string;
+  expiresAt: string;
+  originalName: string;
+  mimeType: string;
+}> {
+  return request(`/invoices/${id}/download`);
+}
+
+export async function downloadInvoicePdf(id: string): Promise<void> {
+  const { downloadUrl } = await getInvoiceDownloadUrl(id);
+  window.open(`${getApiBase()}${downloadUrl}`, "_blank", "noopener,noreferrer");
+}
+
+export async function previewDeliveryDates(params: {
+  customerId: string;
+  serviceDate: string;
+}): Promise<DeliveryDatePreview> {
+  return request<DeliveryDatePreview>(`/invoices/delivery-date/preview${qs(params)}`);
+}
+
+// --- 帳票 ---
+
+export async function getReportCatalog(): Promise<ReportCatalogItem[]> {
+  return request<ReportCatalogItem[]>(`/reports`);
+}
+
+export async function generateReport(
+  key: string,
+  params: Record<string, unknown>,
+): Promise<{ jobId: string; status: string; reportKey: string; statusUrl: string }> {
+  return request(`/reports/${key}/generate`, {
+    method: "POST",
+    body: JSON.stringify({ params }),
+  });
+}
+
+// --- 発注・売価（A+C） ---
+
+export async function getScheduleCalcBasis(scheduleId: string): Promise<ScheduleCalcBasis> {
+  return request<ScheduleCalcBasis>(`/procurement/schedules/${scheduleId}/calc-basis`);
+}
+
+export async function getBagDesigns(params?: {
+  customerId?: string;
+  page?: number;
+  perPage?: number;
+}): Promise<Paginated<BagDesignItem>> {
+  return requestList<BagDesignItem>(`/masters/bag-designs${qs(params ?? {})}`);
+}
+
+export async function createBagDesign(payload: {
+  customerId: string;
+  name: string;
+  facilityNumber?: number;
+  maxUnits?: number;
+  maxMeals?: number;
+  unitIds: string[];
+  sortOrder?: number;
+  isActive?: boolean;
+}): Promise<BagDesignItem> {
+  return request<BagDesignItem>(`/masters/bag-designs`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateBagDesign(
+  id: string,
+  payload: Partial<{
+    name: string;
+    facilityNumber: number | null;
+    maxUnits: number;
+    maxMeals: number;
+    unitIds: string[];
+    sortOrder: number;
+    isActive: boolean;
+  }>,
+): Promise<BagDesignItem> {
+  return request<BagDesignItem>(`/masters/bag-designs/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteBagDesign(id: string): Promise<void> {
+  await request<void>(`/masters/bag-designs/${id}`, { method: "DELETE" });
+}
+
+export async function getPickingDestinations(params?: {
+  page?: number;
+  perPage?: number;
+}): Promise<Paginated<PickingDestinationItem>> {
+  return requestList<PickingDestinationItem>(`/masters/picking-destinations${qs(params ?? {})}`);
+}
+
+export async function upsertPickingDestination(payload: {
+  stockItemId: string;
+  destination: "regular_menu" | "allergen_menu" | "pouch" | "other";
+  note?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}): Promise<PickingDestinationItem> {
+  return request<PickingDestinationItem>(`/masters/picking-destinations`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deletePickingDestination(stockItemId: string): Promise<void> {
+  await request<void>(`/masters/picking-destinations/${stockItemId}`, { method: "DELETE" });
+}
+
+export async function previewSalesPrice(params: {
+  invoiceMonth: string;
+  customerIds?: string;
+}): Promise<SalesPricePreview> {
+  return request<SalesPricePreview>(`/sales-prices/preview${qs(params)}`);
+}
+
+export async function generateSalesPrice(payload: {
+  invoiceMonth: string;
+  customerIds?: string[];
+  format?: "xlsx" | "csv";
+}): Promise<{ jobId: string; status: string; statusUrl: string }> {
+  return request(`/sales-prices/generate`, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }

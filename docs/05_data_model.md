@@ -1160,6 +1160,45 @@ REQ-03 に対応。FR-601, FR-602。
 
 現行 `/sales-price-management/`。FR-604。試食会注文（`order_types.links_to_sales_price = false`）は集計対象から除外する。
 
+### 8.5 inquiry_threads / inquiry_messages（問い合わせチャット）
+
+現行 `/chat/`（施設側）・`/chat-all/`（社内側）。FR-309。
+
+**設計方針**
+
+- 1 施設につき複数スレッドを持てる（件名で区別。件名未設定も可）
+- メッセージはスレッドに紐づく。スレッド削除時はメッセージも CASCADE 削除
+- 施設ユーザーは自施設のスレッドのみ。社内ユーザーは全施設を閲覧可能（`/chat-all/` 相当）
+- 既読はメッセージ単位（`read_at`）。相手側が開いた時点で更新
+- リアルタイム配信は Phase 7 初期ではポーリング。WebSocket は将来拡張
+
+**inquiry_threads**
+
+| カラム | 型 | 説明 |
+|--------|----|------|
+| `customer_id` | BIGINT UNSIGNED | FK → `customers` |
+| `subject` | VARCHAR(200) NULL | 件名（任意） |
+| `status` | VARCHAR(20) | `open` / `closed` |
+| `last_message_at` | DATETIME(3) NULL | 一覧ソート用 |
+| `created_by_type` | VARCHAR(20) NULL | `internal` / `facility` |
+| `created_by_id` | BIGINT UNSIGNED NULL | 作成者ユーザー ID |
+
+**インデックス**: `KEY(customer_id, status)`, `KEY(last_message_at)`
+
+**inquiry_messages**
+
+| カラム | 型 | 説明 |
+|--------|----|------|
+| `thread_id` | BIGINT UNSIGNED | FK → `inquiry_threads` |
+| `sender_type` | VARCHAR(20) | `internal` / `facility` |
+| `sender_user_id` | BIGINT UNSIGNED NULL | 送信者 |
+| `body` | TEXT | 本文（プレーンテキスト。HTML は Phase 7 では非対応） |
+| `read_at` | DATETIME(3) NULL | 相手が既読にした日時 |
+
+**インデックス**: `KEY(thread_id, created_at)`
+
+**権限**: `inquiry.read`, `inquiry.create`, `inquiry.reply`（施設・社内双方に付与）
+
 ---
 
 ## 9. 共通基盤

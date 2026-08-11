@@ -1,10 +1,14 @@
 import { Router } from "express";
 import { z } from "zod";
-import { prisma } from "@dan1/database";
 import { authenticate } from "../middleware/auth.js";
 import { sendData, sendList, buildPageMeta } from "../lib/response.js";
-import { NotFoundError } from "../lib/errors.js";
 import { paramId } from "../lib/http.js";
+import {
+  countUnreadNotifications,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "../services/notification.service.js";
 
 export const notificationsRouter = Router();
 
@@ -20,24 +24,17 @@ const listQuerySchema = z.object({
 notificationsRouter.get("/", async (req, res, next) => {
   try {
     const query = listQuerySchema.parse(req.query);
-    const ctx = req.context!;
-    const where = {
-      ...(ctx.userType === "internal"
-        ? { userId: ctx.userId ?? undefined }
-        : { customerUserId: ctx.customerUserId ?? undefined }),
-      ...(query.isRead !== undefined ? { isRead: query.isRead } : {}),
-      ...(query.category ? { category: query.category } : {}),
-    };
-    const [items, totalCount] = await Promise.all([
-      prisma.notification.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (query.page - 1) * query.perPage,
-        take: query.perPage,
-      }),
-      prisma.notification.count({ where }),
-    ]);
+    const { items, totalCount } = await listNotifications(req.context!, query);
     sendList(res, items, buildPageMeta(query.page, query.perPage, totalCount));
+  } catch (error) {
+    next(error);
+  }
+});
+
+notificationsRouter.get("/unread-count", async (req, res, next) => {
+  try {
+    const count = await countUnreadNotifications(req.context!);
+    sendData(res, { count });
   } catch (error) {
     next(error);
   }
@@ -46,9 +43,7 @@ notificationsRouter.get("/", async (req, res, next) => {
 notificationsRouter.patch("/:id/read", async (req, res, next) => {
   try {
     const id = BigInt(paramId(req.params.id));
-    const existing = await prisma.notification.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundError();
-    const updated = await prisma.notification.update({ where: { id }, data: { isRead: true } });
+    const updated = await markNotificationRead(req.context!, id);
     sendData(res, updated);
   } catch (error) {
     next(error);
@@ -57,17 +52,8 @@ notificationsRouter.patch("/:id/read", async (req, res, next) => {
 
 notificationsRouter.post("/read-all", async (req, res, next) => {
   try {
-    const ctx = req.context!;
-    await prisma.notification.updateMany({
-      where: {
-        ...(ctx.userType === "internal"
-          ? { userId: ctx.userId ?? undefined }
-          : { customerUserId: ctx.customerUserId ?? undefined }),
-        isRead: false,
-      },
-      data: { isRead: true },
-    });
-    sendData(res, { updated: true });
+    const result = await markAllNotificationsRead(req.context!);
+    sendData(res, result);
   } catch (error) {
     next(error);
   }

@@ -19,6 +19,10 @@ import { orderWindowsRouter } from "./routes/order-windows.routes.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import { filesRouter } from "./routes/files.routes.js";
 import { schedulerRouter } from "./routes/scheduler.routes.js";
+import { invoicesRouter } from "./routes/invoices.routes.js";
+import { reportsRouter } from "./routes/reports.routes.js";
+import { salesPricesRouter } from "./routes/sales-prices.routes.js";
+import { inquiriesRouter } from "./routes/inquiries.routes.js";
 
 export function createApp() {
   const app = express();
@@ -44,6 +48,10 @@ export function createApp() {
   app.use("/api/v1/announcements", announcementsRouter);
   app.use("/api/v1/admin", adminRouter);
   app.use("/api/v1/files", filesRouter);
+  app.use("/api/v1/invoices", invoicesRouter);
+  app.use("/api/v1/sales-prices", salesPricesRouter);
+  app.use("/api/v1/reports", reportsRouter);
+  app.use("/api/v1/inquiries", inquiriesRouter);
   app.use("/api/v1/internal/scheduler", schedulerRouter);
 
   app.use(notFoundHandler);
