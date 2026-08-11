@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionNavTabs } from "@/components/layout/SectionNavTabs";
 import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ function RiceLogsContent() {
   return (
     <div>
       <PageHeader title="合数ログ" description="合数の変更履歴を確認します" />
+      <SectionNavTabs groupId="orders" />
 
       {error ? <Alert variant="danger" className="mb-4">{error}</Alert> : null}
 

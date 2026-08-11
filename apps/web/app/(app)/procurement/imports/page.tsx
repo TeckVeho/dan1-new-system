@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Upload } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionNavTabs } from "@/components/layout/SectionNavTabs";
 import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -158,6 +159,7 @@ function ImportsContent() {
   return (
     <div>
       <PageHeader title="データ取込" description="らくらく献立ファイルの非同期取込・履歴管理（FR-701）" />
+      <SectionNavTabs groupId="procurement-imports" />
 
       {error ? (
         <Alert variant="danger" title="エラー" className="mb-4">

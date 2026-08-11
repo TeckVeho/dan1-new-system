@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionNavTabs } from "@/components/layout/SectionNavTabs";
 import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -124,6 +125,7 @@ function OrdersListPanel() {
         title="注文"
         description="全施設の注文を横断して確認できます。施設で絞り込んだあと、必要ならワークスペースで入力・変更ができます。"
       />
+      <SectionNavTabs groupId="orders" />
 
       {error ? (
         <Alert variant="danger" title="エラー" className="mb-4">
@@ -224,6 +226,7 @@ function OrdersWorkspace() {
             : "週間注文の入力と確認"
         }
       />
+      <SectionNavTabs groupId="orders" />
 
       <OrderContextBar
         customerId={effectiveCustomer}

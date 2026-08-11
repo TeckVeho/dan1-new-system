@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionNavTabs } from "@/components/layout/SectionNavTabs";
 import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,7 @@ function CalcBasisContent() {
         title="計算根拠の確認"
         description="発注スケジュールIDを指定して、参照データと合数フォールバックの根拠を確認します"
       />
+      <SectionNavTabs groupId="procurement-schedule" />
 
       {error ? <Alert variant="danger" title="エラー" className="mb-4">{error}</Alert> : null}
 

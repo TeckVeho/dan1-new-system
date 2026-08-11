@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionNavTabs } from "@/components/layout/SectionNavTabs";
 import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -120,6 +121,7 @@ function MealCountSyncContent() {
         title="食数データの同期"
         description="注文の食数を発注側へ反映します。期間の制限はありません"
       />
+      <SectionNavTabs groupId="procurement-adjustments" />
 
       <section className="mb-4 rounded-lg border border-border bg-white px-4 py-4">
         <h2 className="text-[15px] font-semibold text-text">同期の実行</h2>

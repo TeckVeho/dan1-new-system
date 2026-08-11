@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Printer, Search } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionNavTabs } from "@/components/layout/SectionNavTabs";
 import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -119,6 +120,7 @@ function ScheduleContent() {
           </>
         }
       />
+      <SectionNavTabs groupId="procurement-schedule" />
 
       {error ? (
         <Alert variant="danger" title="エラー" className="mb-4">

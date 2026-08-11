@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionNavTabs } from "@/components/layout/SectionNavTabs";
 import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,7 @@ function MealCountsContent() {
           </div>
         }
       />
+      <SectionNavTabs groupId="orders" />
 
       {error ? <Alert variant="danger" className="mb-4">{error}</Alert> : null}
       {message ? <Alert variant="success" className="mb-4">{message}</Alert> : null}

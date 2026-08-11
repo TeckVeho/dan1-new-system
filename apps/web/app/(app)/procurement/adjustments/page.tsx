@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionNavTabs } from "@/components/layout/SectionNavTabs";
 import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,7 @@ function AdjustmentsContent() {
         title="食数補正"
         description="発注計算に反映する食数の補正（±）を登録します"
       />
+      <SectionNavTabs groupId="procurement-adjustments" />
 
       <section className="mb-4 rounded-lg border border-border bg-white px-4 py-4">
         <h2 className="text-[15px] font-semibold text-text">補正登録</h2>

@@ -194,6 +194,13 @@ export const MASTER_SECTIONS: MasterSection[] = [
         icon: Package,
         status: "ready",
       },
+      {
+        href: "/delivery-dates",
+        label: "配送日プレビュー",
+        description: "施設・提供日から配送日を試算します",
+        icon: CalendarClock,
+        status: "ready",
+      },
     ],
   },
   {

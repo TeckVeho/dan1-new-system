@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { SectionNavTabs } from "@/components/layout/SectionNavTabs";
 import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +63,7 @@ function ImportCalendarContent() {
   return (
     <div>
       <PageHeader title="取込状況カレンダー" description="取込済み・未取込を日ごとに一覧します" />
+      <SectionNavTabs groupId="procurement-imports" />
 
       <div className="mb-4">
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-44" />
