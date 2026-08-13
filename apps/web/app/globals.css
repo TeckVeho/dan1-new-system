@@ -127,3 +127,35 @@ input:-webkit-autofill:focus {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .procurement-schedule-print-area {
+    overflow: visible !important;
+  }
+
+  .procurement-schedule-print-area .dense-grid {
+    font-size: 10px;
+  }
+
+  .procurement-schedule-print-area table {
+    page-break-inside: auto;
+  }
+
+  .procurement-schedule-print-area tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+}

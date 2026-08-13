@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, LogOut, Settings, ShieldCheck, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { APP_VERSION } from "./nav-config";
+import { ACCOUNT_MENU_ITEMS, APP_VERSION, filterHeaderItems } from "./nav-config";
 
 export function UserMenu() {
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
+  const accountMenuItems = filterHeaderItems(ACCOUNT_MENU_ITEMS, can);
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -67,6 +68,22 @@ export function UserMenu() {
             <p className="truncate text-[13px] font-medium text-text">{currentUserLabel}</p>
             <p className="mt-0.5 text-[11px] text-muted">{user.type === "internal" ? "社内ユーザー" : "施設ユーザー"}</p>
           </div>
+          {accountMenuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-[13px] text-text hover:bg-bg"
+              >
+                <Icon className="h-4 w-4 text-muted" />
+                {item.label}
+              </Link>
+            );
+          })}
+          {accountMenuItems.length > 0 ? <div className="my-1 border-t border-border" /> : null}
           <Link
             href="/settings"
             role="menuitem"

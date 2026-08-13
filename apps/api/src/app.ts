@@ -23,6 +23,7 @@ import { invoicesRouter } from "./routes/invoices.routes.js";
 import { reportsRouter } from "./routes/reports.routes.js";
 import { salesPricesRouter } from "./routes/sales-prices.routes.js";
 import { inquiriesRouter } from "./routes/inquiries.routes.js";
+import { manualRouter } from "./routes/manual.routes.js";
 
 export function createApp() {
   const app = express();
@@ -52,6 +53,7 @@ export function createApp() {
   app.use("/api/v1/sales-prices", salesPricesRouter);
   app.use("/api/v1/reports", reportsRouter);
   app.use("/api/v1/inquiries", inquiriesRouter);
+  app.use("/api/v1/manual", manualRouter);
   app.use("/api/v1/internal/scheduler", schedulerRouter);
 
   app.use(notFoundHandler);

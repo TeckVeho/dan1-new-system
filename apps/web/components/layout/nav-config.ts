@@ -191,8 +191,12 @@ export const FACILITY_SIDEBAR: NavSection[] = [
 
 export const HEADER_ITEMS: HeaderItem[] = [
   { href: "/notifications", label: "通知", icon: Bell },
-  { href: "/chat", label: "問い合わせ", icon: MessageSquare, permission: "inquiry.read" },
   { href: "/announcements", label: "お知らせ", icon: Megaphone, permission: "announcement.read" },
+];
+
+/** アカウント（ユーザー）メニュー内のリンク */
+export const ACCOUNT_MENU_ITEMS: HeaderItem[] = [
+  { href: "/chat", label: "問い合わせ", icon: MessageSquare, permission: "inquiry.read" },
   { href: "/manual", label: "操作マニュアル", icon: HelpCircle },
 ];
 

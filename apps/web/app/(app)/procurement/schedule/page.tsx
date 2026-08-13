@@ -9,9 +9,10 @@ import { InternalOnly } from "@/components/auth/InternalOnly";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { FilterChip } from "@/components/ui/badge";
 import { ScheduleGrid, ScheduleLegend } from "@/components/procurement/ScheduleGrid";
-import { getProcurementSchedule, patchScheduleCell, exportProcurementSchedule } from "@/lib/api";
+import { exportProcurementSchedule, getMasterList, getProcurementSchedule, patchScheduleCell } from "@/lib/api";
 import { addDays, formatDateTime } from "@/lib/utils";
 import type { ScheduleResponse } from "@/lib/types";
 
@@ -19,6 +20,7 @@ function ScheduleContent() {
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
   const [supplierId, setSupplierId] = useState("");
+  const [suppliers, setSuppliers] = useState<Array<{ id: string; name: string }>>([]);
   const [deliveryFrom, setDeliveryFrom] = useState(today);
   const [deliveryTo, setDeliveryTo] = useState(addDays(today, 6));
   const [itemQuery, setItemQuery] = useState("");
@@ -31,6 +33,12 @@ function ScheduleContent() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    getMasterList<{ id: string; name: string }>("suppliers", { pageSize: 500 })
+      .then((res) => setSuppliers(res.items))
+      .catch(() => setSuppliers([]));
+  }, []);
 
   const load = useCallback(async () => {
     if (!supplierId) {
@@ -65,7 +73,7 @@ function ScheduleContent() {
 
   async function handleExport(format: "xlsx" | "csv") {
     if (!supplierId) {
-      setError("対象業者IDを入力してください");
+      setError("対象業者を選択してください");
       return;
     }
     setExporting(true);
@@ -103,47 +111,55 @@ function ScheduleContent() {
   }
 
   return (
-    <div>
+    <div className="procurement-schedule-page">
       <PageHeader
         title="発注スケジュール"
         description="仕入業者・納品日を指定して発注量・在庫を確認・編集します（業者ロックは廃止）"
         actions={
           <>
-            <Button variant="secondary" onClick={() => window.print()} disabled={!data}>
+            <Button variant="secondary" className="no-print" onClick={() => window.print()} disabled={!data}>
               <Printer className="h-3.5 w-3.5" />
               印刷
             </Button>
-            <Button variant="secondary" loading={exporting} onClick={() => handleExport("xlsx")} disabled={!supplierId}>
+            <Button variant="secondary" className="no-print" loading={exporting} onClick={() => handleExport("xlsx")} disabled={!supplierId}>
               <Download className="h-3.5 w-3.5" />
               Excel出力
             </Button>
           </>
         }
       />
-      <SectionNavTabs groupId="procurement-schedule" />
+      <div className="no-print">
+        <SectionNavTabs groupId="procurement-schedule" />
+      </div>
 
       {error ? (
-        <Alert variant="danger" title="エラー" className="mb-4">
+        <Alert variant="danger" title="エラー" className="no-print mb-4">
           {error}
         </Alert>
       ) : null}
 
       {exportMessage ? (
-        <Alert variant="success" className="mb-4">
+        <Alert variant="success" className="no-print mb-4">
           {exportMessage}
         </Alert>
       ) : null}
 
-      <div className="mb-4 grid gap-3 rounded-lg border border-border bg-white px-4 py-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Input
-          label="対象業者ID"
-          placeholder="例: 7"
+      <div className="no-print mb-4 grid gap-3 rounded-lg border border-border bg-white px-4 py-3 sm:grid-cols-2 lg:grid-cols-5">
+        <Select
+          label="対象業者"
           value={supplierId}
           onChange={(e) => {
             setSupplierId(e.target.value);
             setPage(1);
           }}
-        />
+        >
+          <option value="">業者を選択…</option>
+          {suppliers.map((supplier) => (
+            <option key={supplier.id} value={supplier.id}>
+              {supplier.name}
+            </option>
+          ))}
+        </Select>
         <Input
           label="納品日（開始）"
           type="date"
@@ -186,7 +202,7 @@ function ScheduleContent() {
         </div>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-3">
         <ScheduleLegend />
         <div className="flex gap-1.5">
           <FilterChip active={mode === "detail"} onClick={() => setMode("detail")} label="詳細モード" />
@@ -195,17 +211,20 @@ function ScheduleContent() {
       </div>
 
       {!supplierId ? (
-        <div className="rounded-lg border border-border bg-white px-4 py-10 text-center text-[13px] text-muted">
-          対象業者IDを入力してください
+        <div className="no-print rounded-lg border border-border bg-white px-4 py-10 text-center text-[13px] text-muted">
+          対象業者を選択してください
         </div>
       ) : loading ? (
-        <div className="rounded-lg border border-border bg-white px-4 py-10 text-center text-[13px] text-muted">
+        <div className="no-print rounded-lg border border-border bg-white px-4 py-10 text-center text-[13px] text-muted">
           読み込み中…
         </div>
       ) : data ? (
-        <>
+        <div className="procurement-schedule-print-area">
+          <div className="print-only mb-2 hidden text-[13px] font-semibold">
+            発注スケジュール — {data.supplier?.name ?? supplierId}（{deliveryFrom} 〜 {deliveryTo}）
+          </div>
           <ScheduleGrid data={data} mode={mode} onCellEdit={handleCellEdit} />
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[12px] text-muted">
+          <div className="no-print mt-3 flex flex-wrap items-center justify-between gap-3 text-[12px] text-muted">
             <span>最終計算: {formatDateTime(data.calculatedAt)}</span>
             <div className="flex items-center gap-2">
               <Button
@@ -229,7 +248,7 @@ function ScheduleContent() {
               </Button>
             </div>
           </div>
-        </>
+        </div>
       ) : null}
     </div>
   );

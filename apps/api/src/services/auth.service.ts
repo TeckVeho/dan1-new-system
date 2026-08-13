@@ -6,6 +6,8 @@ import { UnauthenticatedError, ForbiddenError, BusinessRuleViolationError, NotFo
 import { expandPermissions } from "../lib/permissions.js";
 import { getRoleDisplayName } from "@dan1/shared";
 import type { RequestContext } from "../types/context.js";
+import { env } from "../config/env.js";
+import { sendEmail } from "./email.service.js";
 
 const INTERNAL_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const FACILITY_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -269,7 +271,22 @@ async function createPasswordResetToken(
       expiresAt,
     },
   });
-  console.info(`[password-reset] ${email}: /password-reset/${token}`);
+
+  const resetUrl = `${env.publicWebUrl.replace(/\/$/, "")}/password-reset/${token}`;
+  const text = [
+    "談 業務システムのパスワード再設定のご案内です。",
+    "",
+    "以下のリンクから新しいパスワードを設定してください（有効期限: 1時間）。",
+    resetUrl,
+    "",
+    "心当たりがない場合は、このメールを破棄してください。",
+  ].join("\n");
+
+  await sendEmail({
+    to: email,
+    subject: "【談】パスワード再設定のご案内",
+    text,
+  });
 }
 
 export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {

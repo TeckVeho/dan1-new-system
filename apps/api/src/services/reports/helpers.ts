@@ -1,5 +1,5 @@
 import { prisma } from "@dan1/database";
-import { buildWorkbookBuffer, rowsToCsv } from "../../lib/spreadsheet.js";
+import { buildWorkbookBuffer, rowsToCsv, buildExportMetaRows } from "../../lib/spreadsheet.js";
 import type { BuiltReportFile, ReportFormat } from "./types.js";
 
 export function dateKey(date: Date): string {
@@ -73,9 +73,10 @@ export async function toSpreadsheetFile(input: {
   filenameBase: string;
   format: ReportFormat;
   columnWidths?: number[];
+  meta?: Record<string, string | number | boolean | null | undefined>;
 }): Promise<BuiltReportFile> {
-  const allRows = [input.header, ...input.rows];
-  const ext = input.format === "csv" ? "csv" : "xlsx";
+  const metaRows = input.meta ? buildExportMetaRows(input.meta) : [];
+  const allRows = [...metaRows, input.header, ...input.rows];
 
   if (input.format === "csv") {
     const csv = rowsToCsv(allRows);
@@ -109,6 +110,7 @@ export async function toMultiSheetSpreadsheetFile(input: {
     header: (string | number)[];
     rows: (string | number)[][];
     columnWidths?: number[];
+    meta?: Record<string, string | number | boolean | null | undefined>;
   }>;
   filenameBase: string;
   format: ReportFormat;
@@ -122,15 +124,19 @@ export async function toMultiSheetSpreadsheetFile(input: {
       rows: first.rows,
       filenameBase: input.filenameBase,
       format: "csv",
+      meta: first.meta,
     });
   }
 
   const buffer = await buildWorkbookBuffer(
-    input.sheets.map((sheet) => ({
-      name: sheet.name,
-      rows: [sheet.header, ...sheet.rows],
-      columnWidths: sheet.columnWidths,
-    })),
+    input.sheets.map((sheet) => {
+      const metaRows = sheet.meta ? buildExportMetaRows(sheet.meta) : [];
+      return {
+        name: sheet.name,
+        rows: [...metaRows, sheet.header, ...sheet.rows],
+        columnWidths: sheet.columnWidths,
+      };
+    }),
   );
 
   const rowCount = input.sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0);

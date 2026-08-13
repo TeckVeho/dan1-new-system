@@ -23,6 +23,21 @@ export function rowsToCsv(rows: unknown[][]): string {
   return rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
 }
 
+/** 出力ファイル先頭に付ける条件メタ行（FR-006） */
+export function buildExportMetaRows(
+  meta: Record<string, string | number | boolean | null | undefined>,
+): (string | number)[][] {
+  const rows: (string | number)[][] = [["出力条件", ""]];
+  for (const [label, value] of Object.entries(meta)) {
+    if (value === undefined || value === null || value === "") continue;
+    const display =
+      typeof value === "boolean" ? (value ? "はい" : "いいえ") : String(value);
+    rows.push([label, display]);
+  }
+  rows.push([]);
+  return rows;
+}
+
 export async function buildWorkbookBuffer(sheets: SpreadsheetSheet[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   for (const sheet of sheets) {

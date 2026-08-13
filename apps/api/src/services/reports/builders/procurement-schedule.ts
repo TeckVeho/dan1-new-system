@@ -1,5 +1,5 @@
 import { getSchedules } from "../../procurement.service.js";
-import { buildWorkbookBuffer, rowsToCsv } from "../../../lib/spreadsheet.js";
+import { buildWorkbookBuffer, rowsToCsv, buildExportMetaRows } from "../../../lib/spreadsheet.js";
 import { safeFilenamePart, parseDateParam } from "../helpers.js";
 import {
   PROCUREMENT_SCHEDULE_PARAM_FIELDS,
@@ -48,11 +48,21 @@ export const procurementScheduleReport: ReportDefinition = {
     const safeSupplier = safeFilenamePart(result.supplier.name);
     const filenameBase = `発注スケジュール_${safeSupplier}_${input.deliveryFrom}_${input.deliveryTo}`;
     const format = input.format;
+    const exportedAt = new Date().toISOString().slice(0, 19).replace("T", " ");
+    const meta = {
+      帳票名: "発注スケジュール",
+      仕入業者: result.supplier.name,
+      納品日: `${input.deliveryFrom} 〜 ${input.deliveryTo}`,
+      商品検索: input.search ?? "",
+      不足のみ: input.shortageOnly ?? false,
+      出力日時: exportedAt,
+    };
+    const metaRows = buildExportMetaRows(meta);
 
     await setProgress(70, "ファイルを生成中");
 
     if (format === "csv") {
-      const csv = rowsToCsv([header, ...rows]);
+      const csv = rowsToCsv([...metaRows, header, ...rows]);
       return {
         buffer: Buffer.from(`\uFEFF${csv}`, "utf-8"),
         filename: `${filenameBase}.csv`,
@@ -61,7 +71,9 @@ export const procurementScheduleReport: ReportDefinition = {
       };
     }
 
-    const buffer = await buildWorkbookBuffer([{ name: result.supplier.name, rows: [header, ...rows] }]);
+    const buffer = await buildWorkbookBuffer([
+      { name: result.supplier.name, rows: [...metaRows, header, ...rows] },
+    ]);
     return {
       buffer,
       filename: `${filenameBase}.xlsx`,

@@ -1487,6 +1487,25 @@ export async function downloadInvoicePdf(id: string): Promise<void> {
   window.open(`${getApiBase()}${downloadUrl}`, "_blank", "noopener,noreferrer");
 }
 
+export async function downloadManualPdf(): Promise<void> {
+  const res = await fetch(`${V1}/manual/pdf`, { credentials: "include", cache: "no-store" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(
+      res.status,
+      body?.error?.code ?? "DOWNLOAD_FAILED",
+      body?.error?.message ?? "マニュアルのダウンロードに失敗しました",
+    );
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "manual.pdf";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function previewDeliveryDates(params: {
   customerId: string;
   serviceDate: string;

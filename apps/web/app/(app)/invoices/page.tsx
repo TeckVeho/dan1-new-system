@@ -7,9 +7,10 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { DataTable, Pagination, type DataTableColumn } from "@/components/layout/DataTable";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { closeInvoices, getCustomers, getInvoices, previewInvoices } from "@/lib/api";
+import { closeInvoices, getCustomers, getInvoices, getMasterList, previewInvoices } from "@/lib/api";
 import type { Customer, InvoiceClosePreview, InvoiceItem, InvoiceStatus } from "@/lib/types";
 import { formatDateTime, formatNumber } from "@/lib/utils";
 
@@ -53,6 +54,8 @@ export default function InvoicesPage() {
   const [previewing, setPreviewing] = useState(false);
   const [showClosePanel, setShowClosePanel] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerGroups, setCustomerGroups] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
   const [preview, setPreview] = useState<InvoiceClosePreview | null>(null);
@@ -85,7 +88,18 @@ export default function InvoicesPage() {
     getCustomers({ pageSize: 500 })
       .then((res) => setCustomers(res.items.filter((c) => c.isActive !== false && !c.isInternalTest)))
       .catch(() => setCustomers([]));
+    getMasterList<{ id: string; name: string }>("customer-groups", { pageSize: 100 })
+      .then((res) => setCustomerGroups(res.items))
+      .catch(() => setCustomerGroups([]));
   }, [can]);
+
+  function selectCustomersByGroup(groupId: string) {
+    setSelectedGroupId(groupId);
+    if (!groupId) return;
+    const ids = customers.filter((c) => c.customerGroupId === groupId).map((c) => c.id);
+    setSelectedCustomerIds(ids);
+    setPreview(null);
+  }
 
   const filteredCustomers = useMemo(() => {
     const q = customerSearch.trim().toLowerCase();
@@ -103,6 +117,7 @@ export default function InvoicesPage() {
     filteredCustomers.every((c) => selectedCustomerIds.includes(c.id));
 
   function toggleCustomer(id: string) {
+    setSelectedGroupId("");
     setSelectedCustomerIds((prev) =>
       prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
     );
@@ -110,6 +125,7 @@ export default function InvoicesPage() {
   }
 
   function toggleAllFiltered() {
+    setSelectedGroupId("");
     if (allFilteredSelected) {
       const filteredIds = new Set(filteredCustomers.map((c) => c.id));
       setSelectedCustomerIds((prev) => prev.filter((id) => !filteredIds.has(id)));
@@ -241,7 +257,7 @@ export default function InvoicesPage() {
             施設を選択してプレビュー後、締め処理を実行します。未選択の場合は全施設が対象です。
           </p>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
             <Input
               label="請求月"
               type="month"
@@ -251,6 +267,18 @@ export default function InvoicesPage() {
                 setPreview(null);
               }}
             />
+            <Select
+              label="施設グループ"
+              value={selectedGroupId}
+              onChange={(e) => selectCustomersByGroup(e.target.value)}
+            >
+              <option value="">グループを選択…</option>
+              {customerGroups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </Select>
             <Input
               label="施設検索"
               value={customerSearch}

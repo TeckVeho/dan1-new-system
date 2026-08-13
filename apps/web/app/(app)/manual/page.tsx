@@ -1,13 +1,25 @@
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Download } from "lucide-react";
+import { downloadManualPdf } from "@/lib/api";
 
 export default function ManualPage() {
   return (
     <div>
-      <PageHeader title="操作マニュアル" description="注文画面の操作方法を確認できます" />
+      <PageHeader
+        title="操作マニュアル"
+        description="注文画面の操作方法を確認できます"
+        actions={
+          <Button type="button" onClick={() => downloadManualPdf()}>
+            <Download className="h-3.5 w-3.5" />
+            PDF をダウンロード
+          </Button>
+        }
+      />
       <Alert variant="info" className="mb-4">
-        PDF マニュアルは準備中です。ログインできない場合は管理者にお問い合わせください。
+        PDF に主要な操作手順をまとめています。ログインできない場合は管理者にお問い合わせください。
       </Alert>
       <div className="rounded-lg border border-border bg-white px-4 py-6 text-[13px] text-text">
         <p className="mb-2">よく使う画面:</p>
